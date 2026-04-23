@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- Tools prepared by Akhyar - UDA GITD Infrastructure (^_^)v -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pfSense Config Report Tool v1.3</title>
+    <style>
+        :root {
+            --win98-grey: #c0c0c0;
+            --win98-white: #ffffff;
+            --win98-dark-grey: #808080;
+            --win98-blue: #000080;
+        }
+
+        body {
+            background-color: #3a6ea5;
+            font-family: "MS Sans Serif", "Tahoma", sans-serif;
+            margin: 0;
+            padding: 0; 
+            font-size: 12px;
+            overflow-x: hidden;
+        }
+
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background-color: var(--win98-grey);
+            padding: 5px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .win98-outset {
+            border: 2px solid;
+            border-top-color: var(--win98-white); border-left-color: var(--win98-white);
+            border-bottom-color: var(--win98-dark-grey); border-right-color: var(--win98-dark-grey);
+        }
+
+        .win98-inset {
+            border: 2px solid;
+            border-top-color: var(--win98-dark-grey); border-left-color: var(--win98-dark-grey);
+            border-bottom-color: var(--win98-white); border-right-color: var(--win98-white);
+            background-color: white;
+        }
+
+        .window { background-color: var(--win98-grey); max-width: 1300px; margin: 20px auto; display: flex; flex-direction: column; }
+        .title-bar { background: var(--win98-blue); padding: 3px 6px; display: flex; justify-content: space-between; align-items: center; color: white; font-weight: bold; cursor: default; user-select: none; }
+        .title-bar.draggable { cursor: move; }
+        .content { padding: 15px; }
+
+        .toolbar { display: flex; gap: 8px; margin-bottom: 5px; background: var(--win98-grey); padding: 5px; border-bottom: 1px solid var(--win98-dark-grey); align-items: center; }
+        .toolbar-spacer { flex-grow: 1; }
+        
+        button.win-btn {
+            background-color: var(--win98-grey);
+            border: 2px solid;
+            border-top-color: var(--win98-white); border-left-color: var(--win98-white);
+            border-bottom-color: var(--win98-dark-grey); border-right-color: var(--win98-dark-grey);
+            padding: 4px 12px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        button.win-btn:active:not(:disabled) { border: 2px solid; border-top-color: var(--win98-dark-grey); border-left-color: var(--win98-dark-grey); border-bottom-color: var(--win98-white); border-right-color: var(--win98-white); }
+        button.win-btn.active-mode { background-color: #d0d0d0; border: 2px inset #fff; }
+        button.win-btn:disabled { color: #808080; cursor: default; }
+
+        .guide-box { background: #ffffe1; border: 1px solid #808080; padding: 8px; margin-bottom: 15px; font-size: 11px; line-height: 1.4; color: #444; }
+
+        .report-section { margin-bottom: 25px; }
+        .section-header { background-color: #000080; color: white; padding: 4px 8px; font-weight: bold; }
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; background: white; table-layout: auto; }
+        th, td { border: 1px solid var(--win98-grey); padding: 6px; text-align: left; vertical-align: top; position: relative; }
+        th { background-color: #d0d0d0; font-size: 10px; text-transform: uppercase; }
+        
+        [contenteditable="true"] { background-color: #ffffef; outline: 1px dashed #000080; }
+        [contenteditable="true"]:focus { background-color: #fff; outline: 2px solid #000080; }
+        
+        .cell-selected { background-color: #b3d7ff !important; outline: 2px solid #0078d7 !important; z-index: 5; }
+
+        .del-btn { color: red; cursor: pointer; font-weight: bold; padding: 0 5px; border: 1px solid #ccc; background: #eee; }
+        .add-row-btn { font-size: 10px; margin-top: 5px; background: #e0e0e0; border: 1px solid #808080; cursor: pointer; padding: 2px 5px; }
+
+        .site-badge { background: #008000; color: white; padding: 5px 15px; font-weight: bold; margin-bottom: 15px; border: 2px inset #ffffff; display: inline-block; }
+        
+        #dropZone { padding: 40px; text-align: center; border: 2px dashed var(--win98-dark-grey); background: #eee; cursor: pointer; transition: background 0.2s; }
+        #dropZone.dragover { background: #cbd5e1; }
+        
+        .hidden { display: none !important; }
+        .decrypted { color: #d00000; font-family: monospace; font-weight: bold; word-break: break-all; background: #fff0f0; }
+
+        .bg-soft-0 { background-color: #f0f4ff; } 
+        .bg-soft-1 { background-color: #fff0f0; } 
+        .bg-soft-2 { background-color: #f0fff0; } 
+        .bg-soft-3 { background-color: #fffaf0; } 
+        .bg-soft-4 { background-color: #f5f0ff; } 
+        .bg-soft-5 { background-color: #f0ffff; }
+
+        .rule-action-pass { color: green; font-weight: bold; }
+        .rule-action-block { color: red; font-weight: bold; }
+
+        #frModal { position: fixed; top: 150px; left: 50%; transform: translateX(-50%); z-index: 2000; width: 380px; background: var(--win98-grey); box-shadow: 2px 2px 10px rgba(0,0,0,0.5); }
+        #customAlert { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3000; width: 300px; background: var(--win98-grey); }
+    </style>
+</head>
+<body>
+
+    <div id="customAlert" class="window win98-outset hidden">
+        <div class="title-bar"><span>System Message</span></div>
+        <div class="content" style="text-align: center;">
+            <p id="alertMsg"></p>
+            <button class="win-btn" onclick="document.getElementById('customAlert').classList.add('hidden')">OK</button>
+        </div>
+    </div>
+
+    <div id="frModal" class="window win98-outset hidden">
+        <div id="frHandle" class="title-bar draggable">
+            <span>Find and Replace</span>
+            <button onclick="closeFR()" style="background:#c0c0c0; border:1px solid #000; width:16px; height:14px; font-size:9px; cursor:pointer;">X</button>
+        </div>
+        <div class="content" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label>Find:</label><input type="text" id="findInput" class="win98-inset" style="width:200px;">
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <label>Replace:</label><input type="text" id="replaceInput" class="win98-inset" style="width:200px;">
+            </div>
+            <div style="display:flex; gap:5px; margin-top:10px;">
+                <button class="win-btn" style="flex:1" onclick="executeFR('find')">Find Next</button>
+                <button class="win-btn" style="flex:1" onclick="executeFR('replaceAll')">Replace All</button>
+            </div>
+            <div id="frStatus" style="font-size: 10px; text-align: center;">Ready</div>
+        </div>
+    </div>
+
+    <div class="sticky-header no-print">
+        <div class="toolbar">
+            <button id="btnLoad" class="win-btn">1. Open XML</button>
+            <button id="btnAnalyze" class="win-btn" disabled>2. Generate Report</button>
+            <button id="btnSave" class="win-btn hidden">3. Lock & Finalize</button>
+            <button id="btnDownload" class="win-btn hidden">4. Download Final HTML</button>
+            <div class="toolbar-spacer"></div>
+            <button id="btnFR" class="win-btn">Find and Replace</button>
+            <button id="btnToggleSelection" class="win-btn">Selection Mode: OFF</button>
+            <button id="btnEditHtml" class="win-btn">Edit Existing Report</button>
+            <input type="file" id="fileInput" class="hidden" accept=".xml">
+            <input type="file" id="htmlInput" class="hidden" accept=".html">
+        </div>
+    </div>
+
+    <div class="window win98-outset">
+        <div class="title-bar">
+            <span>pfSense Config Report Tool v1.3</span>
+            <div style="font-size: 10px;">Prepared by Akhyar GITD</div>
+        </div>
+        
+        <div class="guide-box no-print" style="margin: 15px;">
+            <strong>Migration Operations Guide:</strong><br>
+            • Use <b>Open XML</b> to load pfSense export file (.xml) or <b>Drag & Drop</b> file into the box below.<br>
+            • Click <b>Generate Report</b> to extract and map existing configurations for migration planning.<br>
+            • Update <b>Migration Target Details</b> and verify all sections before finalized the blueprint.<br>
+            • Use <b>Lock & Finalize</b> to prepare the report for export as a standalone documentation.<br>
+            • Enable <b>Selection Mode</b> to drag across cells for bulk Copy/Paste (Ctrl+C / Ctrl+V).
+        </div>
+
+        <div class="content">
+            <div id="dropZone" class="win98-inset">
+                <strong>Click To Open or Drag pfSense XML CONFIG or PREVIOUS REPORT HERE</strong><br>
+                <small>Use This Tool to analyze pfSense XML Config file which can be obtained by exporting it from pfSense Firewall.</small>
+            </div>
+
+            <div id="reportContainer" class="hidden">
+                <div id="siteHeader"></div>
+                <div id="editableReport" class="win98-inset" style="padding: 10px; background: #fff; min-height: 500px;"></div>
+            </div>
+        </div>
+
+        <div style="background: var(--win98-grey); border-top: 1px solid #808080; padding: 2px 10px; font-size: 10px; display: flex; justify-content: space-between;">
+            <div>Status: <span id="statusTxt">Awaiting File</span></div>
+            <div id="clock">00:00:00</div>
+        </div>
+    </div>
+
+    <script>
+        let xmlDoc = null;
+        let siteName = "SITE";
+        let isSelectionActive = false;
+        let startCell = null;
+        let interfacesInfo = {};
+
+        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-GB'), 1000);
+
+        function showAlert(msg) {
+            document.getElementById('alertMsg').innerText = msg;
+            document.getElementById('customAlert').classList.add('hidden');
+        }
+
+        // --- SELECTION & CLIPBOARD ---
+        const btnToggleSel = document.getElementById('btnToggleSelection');
+        btnToggleSel.onclick = () => {
+            isSelectionActive = !isSelectionActive;
+            btnToggleSel.innerText = `Selection Mode: ${isSelectionActive ? 'ON' : 'OFF'}`;
+            btnToggleSel.classList.toggle('active-mode', isSelectionActive);
+            if (!isSelectionActive) clearSelection();
+        };
+
+        function clearSelection() { document.querySelectorAll('.cell-selected').forEach(el => el.classList.remove('cell-selected')); }
+
+        document.addEventListener('mousedown', e => {
+            if (!isSelectionActive) return;
+            const td = e.target.closest('td');
+            if (td && td.closest('#editableReport')) {
+                clearSelection();
+                startCell = td;
+                td.classList.add('cell-selected');
+            }
+        });
+
+        document.addEventListener('mouseover', e => {
+            if (!isSelectionActive || !startCell) return;
+            const td = e.target.closest('td');
+            if (td && td.closest('table') === startCell.closest('table')) {
+                const table = td.closest('table');
+                const startR = startCell.parentElement.rowIndex;
+                const startC = startCell.cellIndex;
+                const endR = td.parentElement.rowIndex;
+                const endC = td.cellIndex;
+                clearSelection();
+                for (let r = Math.min(startR, endR); r <= Math.max(startR, endR); r++) {
+                    for (let c = Math.min(startC, endC); c <= Math.max(startC, endC); c++) {
+                        table.rows[r].cells[c].classList.add('cell-selected');
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => startCell = null);
+
+        document.addEventListener('copy', e => {
+            const selected = document.querySelectorAll('.cell-selected');
+            if (selected.length === 0) return;
+            e.preventDefault();
+            let rowsMap = {};
+            selected.forEach(td => {
+                const rIdx = td.parentElement.rowIndex;
+                if (!rowsMap[rIdx]) rowsMap[rIdx] = [];
+                rowsMap[rIdx].push(td.innerText);
+            });
+            const text = Object.values(rowsMap).map(row => row.join('\t')).join('\n');
+            e.clipboardData.setData('text/plain', text);
+        });
+
+        document.addEventListener('paste', e => {
+            const activeTd = document.activeElement.closest('td');
+            if (!activeTd || activeTd.getAttribute('contenteditable') !== 'true') return;
+            e.preventDefault();
+            const text = (e.clipboardData || window.clipboardData).getData('text');
+            const lines = text.split(/\r?\n/);
+            const table = activeTd.closest('table');
+            const startR = activeTd.parentElement.rowIndex;
+            const startC = activeTd.cellIndex;
+            lines.forEach((line, rOffset) => {
+                if (!line.trim() && rOffset === lines.length - 1) return;
+                const cells = line.split('\t');
+                const targetRow = table.rows[startR + rOffset];
+                if (!targetRow) return;
+                cells.forEach((val, cOffset) => {
+                    const targetCell = targetRow.cells[startC + cOffset];
+                    if (targetCell && targetCell.getAttribute('contenteditable') === 'true') targetCell.innerText = val;
+                });
+            });
+        });
+
+        // --- FILE OPERATIONS ---
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const htmlInput = document.getElementById('htmlInput');
+
+        document.getElementById('btnLoad').onclick = () => fileInput.click();
+        dropZone.onclick = () => fileInput.click();
+
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file.name.endsWith('.html')) handleHtmlFile(file);
+            else handleXmlFile(file);
+        };
+
+        fileInput.onchange = (e) => handleXmlFile(e.target.files[0]);
+        htmlInput.onchange = (e) => handleHtmlFile(e.target.files[0]);
+
+        function handleXmlFile(file) {
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                if (!text.includes('<pfsense>')) {
+                    showAlert("The selected file is not recognized by this tool. Please select pfSense exported Backup XML File or Report HTML which was produced by this tool.");
+                    return;
+                }
+                const parser = new DOMParser();
+                xmlDoc = parser.parseFromString(text, "text/xml");
+                document.getElementById('btnAnalyze').disabled = false;
+                document.getElementById('statusTxt').innerText = "XML Loaded: " + file.name;
+                dropZone.innerHTML = `<strong>${file.name} Loaded</strong><br>Click 'Generate Report'`;
+            };
+            reader.readAsText(file);
+        }
+
+        function handleHtmlFile(file) {
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const text = ev.target.result;
+                if (!text.includes('id="editableReport"')) {
+                    showAlert("The selected file is not recognized by this tool.");
+                    return;
+                }
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, "text/html");
+                const content = doc.querySelector('#editableReport');
+                const badge = doc.querySelector('.site-badge');
+                if (badge) siteName = badge.innerText.replace(/MIGRATION TARGET SITE:|SITE:|MIGRATION TARGET:/g, '').trim();
+                document.getElementById('dropZone').classList.add('hidden');
+                document.getElementById('reportContainer').classList.remove('hidden');
+                document.getElementById('btnSave').classList.remove('hidden');
+                document.getElementById('siteHeader').innerHTML = `<div class="site-badge">MIGRATION TARGET SITE: ${siteName}</div>`;
+                const reportDiv = document.getElementById('editableReport');
+                reportDiv.innerHTML = content.innerHTML;
+                reportDiv.querySelectorAll('td').forEach(td => { if (!td.classList.contains('no-print')) td.setAttribute('contenteditable', 'true'); });
+                document.getElementById('statusTxt').innerText = "Report Restored for Editing.";
+            };
+            reader.readAsText(file);
+        }
+
+        const safeB64 = (s) => { if(!s) return ""; try { return atob(s.trim()); } catch(e) { return s; } };
+
+        document.getElementById('btnAnalyze').onclick = function() {
+            document.getElementById('dropZone').classList.add('hidden');
+            document.getElementById('reportContainer').classList.remove('hidden');
+            document.getElementById('btnSave').classList.remove('hidden');
+            
+            siteName = xmlDoc.querySelector('system hostname')?.textContent?.toUpperCase() || 'PFSENSE-SITE';
+            let domain = xmlDoc.querySelector('system domain')?.textContent || 'local';
+            document.getElementById('siteHeader').innerHTML = `<div class="site-badge">MIGRATION TARGET SITE: ${siteName}</div>`;
+            
+            let html = "";
+
+            // 1. Details
+            html += `<div class="report-section"><div class="section-header">1. Firewall Target Details (OPNsense)</div>
+                <table><thead><tr><th>Description</th><th>Details</th><th class="no-print"></th></tr></thead><tbody>
+                <tr><td>Site Name</td><td contenteditable="true">${siteName}</td><td></td></tr>
+                <tr><td>Domain</td><td contenteditable="true">${domain}</td><td></td></tr>
+                <tr><td>Hostname</td><td contenteditable="true" id="field-hostname">${siteName}-OPN</td><td></td></tr>
+                <tr><td>Username</td><td contenteditable="true">root</td><td></td></tr>
+                <tr><td>Password</td><td contenteditable="true"></td><td></td></tr>
+                </tbody></table></div>`;
+
+            // 2. Aliases
+            let aliasRows = "";
+            xmlDoc.querySelectorAll('aliases alias').forEach(a => {
+                const n = a.querySelector('name')?.textContent || '';
+                const v = a.querySelector('address')?.textContent || '';
+                aliasRows += `<tr><td contenteditable="true"><b>${n}</b></td><td contenteditable="true">${v.split(' ').join(', ')}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("2. Network Aliases & Definitions", ["Alias Name", "Definition / Values"], aliasRows);
+
+            // 3. PPPoE
+            let pppRows = "";
+            xmlDoc.querySelectorAll('ppps ppp').forEach(p => {
+                pppRows += `<tr><td contenteditable="true">${p.querySelector('ports')?.textContent || 'WAN'}</td><td contenteditable="true">${p.querySelector('username')?.textContent || ''}</td><td contenteditable="true" class="decrypted">${safeB64(p.querySelector('password')?.textContent)}</td><td contenteditable="true">${p.querySelector('descr')?.textContent || ''}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("3. PPPoE & ISP Credentials", ["Interface", "Username", "Password (Plain)", "Description"], pppRows);
+
+            // 4. Mapping
+            let ifRows = "";
+            const ifaces = xmlDoc.querySelector('interfaces');
+            Array.from(ifaces.children).forEach(i => {
+                const tag = i.tagName;
+                const desc = i.querySelector('descr')?.textContent || tag;
+                const phys = i.querySelector('if')?.textContent || '';
+                const ip = i.querySelector('ipaddr')?.textContent || 'DHCP';
+                const mask = i.querySelector('subnet')?.textContent || '';
+                const fullIp = mask ? `${ip}/${mask}` : ip;
+                interfacesInfo[tag.toLowerCase()] = { desc, ip: fullIp };
+                ifRows += `<tr><td contenteditable="true"><b>${tag.toUpperCase()} (${phys})</b></td><td contenteditable="true">${phys}</td><td contenteditable="true">${desc}</td><td contenteditable="true">${fullIp}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("4. Interface Mapping (Physical to Logical)", ["Logical ID", "Physical Port", "Description", "IP / Subnet"], ifRows);
+
+            // 5. DHCP
+            let dhcpRows = "";
+            xmlDoc.querySelectorAll('dhcpd > *').forEach(d => {
+                const tag = d.tagName.toLowerCase();
+                const from = d.querySelector('range from')?.textContent;
+                const info = interfacesInfo[tag] || { desc: tag.toUpperCase() };
+                if(from) dhcpRows += `<tr><td>${info.desc}</td><td contenteditable="true">${from}</td><td contenteditable="true">${d.querySelector('range to')?.textContent}</td><td contenteditable="true">${d.querySelector('gateway')?.textContent || 'Auto'}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("5. DHCP Server Ranges by Interface", ["Interface", "Start", "End", "Gateway"], dhcpRows);
+
+            // 6. Routes
+            let rtRows = "";
+            xmlDoc.querySelectorAll('staticroutes route').forEach(r => {
+                rtRows += `<tr><td contenteditable="true"><b>${r.querySelector('network')?.textContent}</b></td><td contenteditable="true">${r.querySelector('gateway')?.textContent}</td><td contenteditable="true">${r.querySelector('descr')?.textContent || ''}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("6. Static Routing Table", ["Destination Network", "Gateway", "Description"], rtRows);
+
+            // 7. NAT
+            let natRows = "";
+            xmlDoc.querySelectorAll('nat rule').forEach(r => {
+                const extIf = (r.querySelector('interface')?.textContent || 'WAN').toUpperCase();
+                natRows += `<tr><td contenteditable="true"><b>${extIf}</b></td><td contenteditable="true">${r.querySelector('protocol')?.textContent?.toUpperCase()}</td><td contenteditable="true">${r.querySelector('destination port')?.textContent}</td><td contenteditable="true">➔ <b>${r.querySelector('target')?.textContent}</b></td><td contenteditable="true">${r.querySelector('local-port')?.textContent}</td><td contenteditable="true">${r.querySelector('descr')?.textContent || ''}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("7. NAT Port Forwarding (Incoming Traffic)", ["Interface", "Proto", "Ext Port", "Target IP", "Redirect Port", "Description"], natRows);
+
+            // 8. Firewall Rules
+            let fwRows = "";
+            let currentIface = ""; let grp = -1;
+            xmlDoc.querySelectorAll('filter rule').forEach(r => {
+                const i = (r.querySelector('interface')?.textContent || 'Floating').toUpperCase();
+                let groupStyle = "";
+                if(i !== currentIface) { 
+                    currentIface = i; 
+                    grp++; 
+                    // Add bold top border style for new group first row
+                    groupStyle = "border-top: 3px solid #000080;";
+                }
+                const type = r.querySelector('type')?.textContent || 'pass';
+                const src = r.querySelector('source address')?.textContent || r.querySelector('source network')?.textContent || 'any';
+                const dst = r.querySelector('destination address')?.textContent || r.querySelector('destination network')?.textContent || 'any';
+                fwRows += `<tr class="bg-soft-${grp % 6}" style="${groupStyle}"><td><b>${i}</b></td><td class="rule-action-${type}">${type.toUpperCase()}</td><td>${r.querySelector('protocol')?.textContent?.toUpperCase() || 'ANY'}</td><td contenteditable="true">${src}</td><td contenteditable="true">${dst}</td><td contenteditable="true">${r.querySelector('destination port')?.textContent || 'any'}</td><td contenteditable="true">${r.querySelector('descr')?.textContent || ''}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("8. Firewall Rules (Grouped by Interface)", ["Interface", "Action", "Protocol", "Source", "Destination", "Port", "Description"], fwRows);
+
+            // 9. IPsec
+            let ipRows = "";
+            const p2s = Array.from(xmlDoc.querySelectorAll('ipsec phase2'));
+            const psks = Array.from(xmlDoc.querySelectorAll('ipsec key'));
+            xmlDoc.querySelectorAll('ipsec phase1').forEach(p1 => {
+                const id = p1.querySelector('ikeid')?.textContent;
+                const rgw = p1.querySelector('remote-gateway')?.textContent;
+                const p1Enc = p1.querySelector('encryption-algorithm name')?.textContent || '-';
+                const p1Key = p1.querySelector('encryption-algorithm keylen')?.textContent || '';
+                const p1Hash = p1.querySelector('hash-algorithm')?.textContent || '-';
+                const p1Dh = p1.querySelector('dhgroup')?.textContent || '-';
+                const p1Str = `${p1Enc} ${p1Key}${p1Key?'bit':''}, ${p1Hash}, DH:${p1Dh}`;
+                
+                const pskMatch = psks.find(k => k.querySelector('ident')?.textContent === rgw);
+                const psk = pskMatch ? safeB64(pskMatch.querySelector('pre-shared-key')?.textContent) : "Not Found";
+                
+                const tunnelInfo = p2s.filter(p2 => p2.querySelector('ikeid')?.textContent === id).map(p2 => {
+                    const l = p2.querySelector('localid address')?.textContent || p2.querySelector('localid network')?.textContent || 'Any';
+                    const r = p2.querySelector('remoteid address')?.textContent || p2.querySelector('remoteid network')?.textContent || 'Any';
+                    const proto = p2.querySelector('protocol')?.textContent?.toUpperCase() || 'ESP';
+                    const algos = Array.from(p2.querySelectorAll('encryption-algorithm-option')).map(o => o.querySelector('name')?.textContent).filter(Boolean).join('/');
+                    const hash = Array.from(p2.querySelectorAll('hash-algorithm-option')).map(h => h.textContent).filter(Boolean).join('/');
+                    return `Local: ${l} ➔ Remote: ${r}\n[${proto} | ${algos} | ${hash}]`;
+                }).join('\n---\n');
+
+                ipRows += `<tr><td contenteditable="true"><b>${p1.querySelector('descr')?.textContent || '-'}</b></td><td contenteditable="true"><b>${rgw}</b></td><td contenteditable="true">${p1Str}</td><td contenteditable="true" style="white-space:pre-wrap;">${tunnelInfo}</td><td contenteditable="true" class="decrypted">${psk}</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            });
+            html += createSection("9. IPsec VPN (Phase 1 & Phase 2 Parameters)", ["Tunnel Desc", "Remote GW", "Phase 1 Encryption", "Phase 2 [Local ➔ Remote | Proto | Enc | Auth]", "PSK"], ipRows);
+
+            // 10. SIEM
+            let siemRows = "";
+            const syslog = xmlDoc.querySelector('syslog');
+            if(syslog && syslog.querySelector('remoteserver')) {
+                siemRows += `<tr><td contenteditable="true"><b>${syslog.querySelector('remoteserver')?.textContent}</b></td><td contenteditable="true">${syslog.querySelector('facility')?.textContent}</td><td contenteditable="true">Remote Logging Enabled</td><td contenteditable="true">UDP/514</td><td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td></tr>`;
+            }
+            html += createSection("10. Remote Logging (SIEM / Syslog Forwarding)", ["Server IP", "Facility", "Log Types", "Transport"], siemRows);
+
+            document.getElementById('editableReport').innerHTML = html;
+            document.getElementById('statusTxt').innerText = "Analysis Complete.";
+        };
+
+        function createSection(title, headers, rowHtml) {
+            let s = `<div class="report-section"><div class="section-header">${title}</div><table><thead><tr>`;
+            headers.forEach(h => s += `<th>${h}</th>`);
+            s += `<th class="no-print" style="width:30px"></th></tr></thead><tbody>${rowHtml}</tbody></table><button class="add-row-btn no-print" onclick="addRow(this, ${headers.length})">+ Add Row</button></div>`;
+            return s;
+        }
+
+        window.addRow = function(btn, cols) {
+            const tr = document.createElement('tr');
+            for(let i=0; i<cols; i++) tr.innerHTML += `<td contenteditable="true"></td>`;
+            tr.innerHTML += `<td class="no-print"><span class="del-btn" onclick="this.closest('tr').remove()">×</span></td>`;
+            btn.previousElementSibling.querySelector('tbody').appendChild(tr);
+        };
+
+        document.getElementById('btnSave').onclick = () => {
+            const hn = document.getElementById('field-hostname')?.innerText || siteName;
+            siteName = hn;
+            document.getElementById('siteHeader').innerHTML = `<div class="site-badge">MIGRATION TARGET SITE: ${siteName}</div>`;
+            document.querySelectorAll('[contenteditable]').forEach(c => c.removeAttribute('contenteditable'));
+            document.querySelectorAll('.del-btn, .add-row-btn').forEach(b => b.classList.add('hidden'));
+            document.getElementById('btnDownload').classList.remove('hidden');
+            document.getElementById('btnSave').classList.add('hidden');
+            document.getElementById('statusTxt').innerText = "Report Locked.";
+        };
+
+        document.getElementById('btnDownload').onclick = () => {
+            const currentHostname = document.getElementById('field-hostname')?.innerText || siteName;
+            const blob = new Blob([`
+            <!DOCTYPE html><html><head><title>Migration Blueprint - ${siteName}</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; padding: 40px; color: #333; }
+                .site-badge { background: #008000; color: white; padding: 10px 20px; font-weight: bold; display: inline-block; margin-bottom: 20px; }
+                .section-header { background: #000080; color: white; padding: 8px; margin-top: 25px; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+                th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; text-align: left; }
+                th { background: #f4f4f4; } .decrypted { color: #d00; font-weight: bold; }
+                .bg-soft-0 { background-color: #f0f4ff; } 
+                .bg-soft-1 { background-color: #fff0f0; } 
+                .bg-soft-2 { background-color: #f0fff0; } 
+                .bg-soft-3 { background-color: #fffaf0; } 
+                .bg-soft-4 { background-color: #f5f0ff; } 
+                .bg-soft-5 { background-color: #f0ffff; }
+                .rule-action-pass { color: green; font-weight: bold; }
+                .rule-action-block { color: red; font-weight: bold; }
+                .no-print { display: none !important; }
+                .attr { font-size: 10px; color: #888; margin-bottom: 20px; font-style: italic; }
+            </style></head><body>
+            <h1>Migration Blueprint</h1>
+            <div class="attr">Generated using pfSense Config Analyzer Tool v1.3 developed by Akhyar GITD Infra</div>
+            <div class="site-badge">MIGRATION TARGET SITE: ${siteName}</div>
+            <div id="editableReport">${document.getElementById('editableReport').innerHTML}</div>
+            </body></html>`], {type: 'text/html'});
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `${currentHostname}_Migration Blueprint.html`; a.click();
+        };
+
+        function executeFR(mode) {
+            const f = document.getElementById('findInput').value;
+            const r = document.getElementById('replaceInput').value;
+            if(!f) return;
+            const container = document.getElementById('editableReport');
+            if(mode === 'replaceAll') { container.innerHTML = container.innerHTML.split(f).join(r); document.getElementById('frStatus').innerText = "Replaced All Instances."; }
+        }
+        function closeFR() { document.getElementById('frModal').classList.add('hidden'); }
+        document.getElementById('btnFR').onclick = () => document.getElementById('frModal').classList.remove('hidden');
+        document.getElementById('btnEditHtml').onclick = () => htmlInput.click();
+    </script>
+</body>
+</html>
