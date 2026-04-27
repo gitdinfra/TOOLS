@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pfSense Config Report v1.4</title>
+  
+  <!-- React + ReactDOM UMD (versi 18) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel untuk transpile JSX dalam browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS CDN untuk utility classes -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    /* Pastikan saiz ikon generic */
+    svg.icon { display: inline-block; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- ============================================= -->
+  <!-- SKRIP UTAMA DENGAN TYPE="text/babel"          -->
+  <!-- ============================================= -->
+  <script type="text/babel">
+
+    // ------------------------------------------------------------
+    // Definisi ikon Lucide secara manual (SVG functional components)
+    // ------------------------------------------------------------
+    const {
+      useState, useEffect, useRef, useCallback,
+      Fragment, createElement
+    } = React;
+
+    // Helper untuk cipta SVG ikon
+    const createIcon = (d, size = 24, color = 'currentColor', strokeWidth = 2) => (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d={d} />
+      </svg>
+    );
+
+    const Upload = (props) => createIcon("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12", props.size, props.color);
+    const FileCode2 = (props) => createIcon("M10 12l-2-2 2-2 M14 12l2-2-2-2 M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z", props.size, props.color);
+    const Search = (props) => createIcon("M21 21l-6-6 M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z", props.size, props.color);
+    const Replace = (props) => createIcon("M16 3h5v5 M8 3H3v5 M21 16v5h-5 M3 16v5h5 M12 4v16", props.size, props.color); 
+    const ArrowUp = (props) => createIcon("M12 19V5 M5 12l7-7 7 7", props.size, props.color);
+    const ArrowDown = (props) => createIcon("M12 5v14 M19 12l-7 7-7-7", props.size, props.color);
+    const Copy = (props) => createIcon("M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2 M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z", props.size, props.color);
+    const Trash2 = (props) => createIcon("M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6", props.size, props.color);
+    const Plus = (props) => createIcon("M12 5v14 M5 12h14", props.size, props.color);
+    const Undo = (props) => createIcon("M3 7v6h6 M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13", props.size, props.color);
+    const Download = (props) => createIcon("M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3", props.size, props.color);
+    const AlertTriangle = (props) => createIcon("M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01", props.size, props.color);
+    const X = (props) => createIcon("M18 6 6 18 M6 6l12 12", props.size, props.color);
+    const ChevronRight = (props) => createIcon("M9 18l6-6-6-6", props.size, props.color);
+    const ChevronDown = (props) => createIcon("M6 9l6 6 6-6", props.size, props.color);
+
+    // ------------------------------------------------------------
+    // KOD ASAL ANDA (semua function & component)
+    // ------------------------------------------------------------
+
+    // --- THEME CONSTANTS ---
+    const THEME = {
+      bg: '#2D353B',
+      surface: '#374247',
+      primary: '#7FBBB3',
+      secondary: '#A7C080',
+      text: '#D3C6AA',
+      border: '#4A555B',
+      danger: '#E67E80'
+    };
+
+    const REPORT_THEME = {
+      primary: '#2596be',
+      secondary: '#00008B',
+      accent: '#e6595d',
+      bg: '#f8f9fa',
+      text: '#333333'
+    };
+
+    // --- UTILITY FUNCTIONS ---
+    const decodeBase64 = (str) => {
+      try { return atob(str); } catch (e) { return str; }
+    };
+
+    const getNodeText = (parent, selector, fallback = '') => {
+      const node = parent?.querySelector(selector);
+      return node ? node.textContent : fallback;
+    };
+
+    // --- XML PARSER ---
+    const parsePfSenseXML = (xmlText) => {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(xmlText, "text/xml");
+      
+      if (!xml.querySelector('pfsense')) {
+        throw new Error("Invalid file format: Not a pfSense configuration file.");
+      }
+
+      const data = {
+        targetDetails: [],
+        aliases: [],
+        pppoe: [],
+        interfaces: [],
+        dhcp: [],
+        routing: [],
+        nat: [],
+        firewall: [],
+        ipsec: [],
+        syslog: []
+      };
+
+      // 1. Target Details
+      data.targetDetails.push({
+        siteName: getNodeText(xml, 'system > hostname', 'Unknown'),
+        domain: getNodeText(xml, 'system > domain', 'udanet.com'),
+        hostname: getNodeText(xml, 'system > hostname', ''),
+        username: 'root',
+        password: '<editable>'
+      });
+
+      // 2. Aliases
+      xml.querySelectorAll('aliases > alias').forEach(node => {
+        data.aliases.push({
+          name: getNodeText(node, 'name'),
+          definition: getNodeText(node, 'address')
+        });
+      });
+
+      // 3. PPPoE
+      xml.querySelectorAll('ppps > ppp').forEach(node => {
+        if (getNodeText(node, 'type') === 'pppoe') {
+          data.pppoe.push({
+            interface: getNodeText(node, 'ports'),
+            username: getNodeText(node, 'username'),
+            password: decodeBase64(getNodeText(node, 'password'))
+          });
+        }
+      });
+
+      // 4. Interfaces & VLAN mapping
+      const vlans = {};
+      xml.querySelectorAll('vlans > vlan').forEach(node => {
+        vlans[getNodeText(node, 'vlanif')] = getNodeText(node, 'tag');
+      });
+
+      xml.querySelectorAll('interfaces > *').forEach(node => {
+        if (node.tagName.toLowerCase() === 'wan' || node.tagName.toLowerCase() === 'lan' || node.tagName.toLowerCase().startsWith('opt')) {
+          const iface = getNodeText(node, 'if');
+          const ip = getNodeText(node, 'ipaddr');
+          if (ip && ip !== 'dhcp' && ip !== 'pppoe') {
+            data.interfaces.push({
+              logicalId: node.tagName.toUpperCase(),
+              vlanId: vlans[iface] || 'None',
+              physicalPort: iface,
+              ipSubnet: `${ip}/${getNodeText(node, 'subnet', '24')}`
+            });
+          }
+        }
+      });
+
+      // 5. DHCP Server
+      xml.querySelectorAll('dhcpd > *').forEach(node => {
+        if (node.querySelector('range > from')) {
+          const dnsServers = Array.from(node.querySelectorAll('dnsserver')).map(n => n.textContent);
+          data.dhcp.push({
+            interface: node.tagName.toUpperCase(),
+            start: getNodeText(node, 'range > from'),
+            end: getNodeText(node, 'range > to'),
+            gateway: getNodeText(node, 'gateway', 'Interface IP'),
+            dns: dnsServers.join(', ') || 'System Default'
+          });
+        }
+      });
+
+      // 6. Static Routing
+      xml.querySelectorAll('staticroutes > route').forEach(node => {
+        data.routing.push({
+          destination: getNodeText(node, 'network'),
+          gateway: getNodeText(node, 'gateway'),
+          description: getNodeText(node, 'descr')
+        });
+      });
+
+      // 7. NAT
+      xml.querySelectorAll('nat > rule').forEach(node => {
+        data.nat.push({
+          interface: getNodeText(node, 'interface'),
+          protocol: getNodeText(node, 'protocol'),
+          externalPort: getNodeText(node, 'destination > port', 'Any'),
+          targetIp: getNodeText(node, 'target'),
+          redirectPort: getNodeText(node, 'local-port'),
+          description: getNodeText(node, 'descr')
+        });
+      });
+
+      // 8. Firewall Rules
+      xml.querySelectorAll('filter > rule').forEach(node => {
+        data.firewall.push({
+          interface: getNodeText(node, 'interface'),
+          action: getNodeText(node, 'type'),
+          protocol: getNodeText(node, 'protocol', 'any'),
+          source: getNodeText(node, 'source > address') || getNodeText(node, 'source > network') || 'any',
+          destination: getNodeText(node, 'destination > address') || getNodeText(node, 'destination > network') || 'any',
+          port: getNodeText(node, 'destination > port', 'any'),
+          description: getNodeText(node, 'descr')
+        });
+      });
+      data.firewall.sort((a, b) => a.interface.localeCompare(b.interface));
+
+      // 9. IPsec VPN
+      const p1s = Array.from(xml.querySelectorAll('ipsec > phase1'));
+      const p2s = Array.from(xml.querySelectorAll('ipsec > phase2'));
+      
+      p1s.forEach(p1 => {
+        const ikeid = getNodeText(p1, 'ikeid');
+        const p2Matches = p2s.filter(p2 => getNodeText(p2, 'ikeid') === ikeid);
+        
+        let p2Details = p2Matches.map(p2 => {
+          let loc = getNodeText(p2, 'localid > address', 'LAN');
+          let rem = getNodeText(p2, 'remoteid > address', 'Any');
+          let proto = getNodeText(p2, 'protocol', 'esp');
+          let enc = getNodeText(p2, 'encryption-algorithm-option > name', 'auto');
+          let auth = getNodeText(p2, 'hash-algorithm-option', 'auto');
+          return `[${loc} -> ${rem} | ${proto} | ${enc} | ${auth}]`;
+        }).join('\n');
+
+        let encAlgo = getNodeText(p1, 'encryption > item > encryption-algorithm > name', 'auto');
+        let encKeyLen = getNodeText(p1, 'encryption > item > encryption-algorithm > keylen', '');
+        let encHash = getNodeText(p1, 'encryption > item > hash-algorithm', '');
+        let encDhGroup = getNodeText(p1, 'encryption > item > dhgroup', '');
+        let encLifeTime = getNodeText(p1, 'lifetime', '');
+
+        let p1Details = encAlgo;
+        if (encKeyLen) p1Details += ` ${encKeyLen} bits`;
+        if (encHash) p1Details += ` | Hash: ${encHash.toUpperCase()}`;
+        if (encDhGroup) p1Details += ` | DH Group: ${encDhGroup}`;
+        if (encLifeTime) p1Details += ` | Life Time: ${encLifeTime}`;
+
+        data.ipsec.push({
+          description: getNodeText(p1, 'descr'),
+          remoteGw: getNodeText(p1, 'remote-gateway'),
+          phase1Enc: p1Details,
+          phase2Details: p2Details || 'None',
+          psk: getNodeText(p1, 'pre-shared-key')
+        });
+      });
+
+      // 10. Syslog
+      xml.querySelectorAll('syslog').forEach(node => {
+        let servers = [getNodeText(node, 'remoteserver'), getNodeText(node, 'remoteserver2'), getNodeText(node, 'remoteserver3')].filter(Boolean);
+        let logTypes = [];
+        ['filter', 'dhcp', 'auth', 'vpn', 'dpinger', 'system'].forEach(type => {
+          if (node.querySelector(type)) logTypes.push(type);
+        });
+
+        servers.forEach(srv => {
+          data.syslog.push({
+            serverIp: srv,
+            logTypes: logTypes.join(', ') || 'All',
+            transportPort: '514 (Default)'
+          });
+        });
+      });
+
+      Object.keys(data).forEach(key => {
+        if (data[key].length === 0) {
+          const emptyRow = {};
+          if (key === 'syslog') emptyRow.serverIp = '';
+          data[key].push(emptyRow);
+        }
+      });
+
+      return data;
+    };
+
+    // --- HTML REPORT GENERATOR ---
+    const generateHTMLReport = (data) => {
+      const hostname = data.targetDetails[0]?.hostname || 'Unknown_Host';
+      
+      const styles = `
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: ${REPORT_THEME.bg}; color: ${REPORT_THEME.text}; margin: 0; padding: 0; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background-color: ${REPORT_THEME.primary}; color: white; padding: 40px 20px; border-radius: 8px 8px 0 0; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header h1 { margin: 0; font-size: 2.5em; color: ${REPORT_THEME.secondary}; text-transform: uppercase; letter-spacing: 1px; }
+        .header p { margin: 10px 0 0 0; font-size: 0.9em; opacity: 0.9; }
+        .section { background: white; padding: 20px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-top: 4px solid ${REPORT_THEME.accent}; }
+        h2 { color: ${REPORT_THEME.primary}; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.95em; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: ${REPORT_THEME.primary}; color: white; font-weight: 600; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #f1f5f9; }
+        .fw-group { border-top: 3px solid ${REPORT_THEME.accent} !important; font-weight: bold; background-color: #e9ecef; }
+      `;
+
+      const generateTable = (sectionData, headers, mappingKeys, groupByKey = null) => {
+        if (!sectionData || sectionData.length === 0) return '<p>No data found.</p>';
+        
+        let html = `<table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>`;
+        
+        let currentGroup = null;
+        const colors = ['#f8f9fa', '#e9ecef', '#dee2e6', '#ced4da'];
+        let colorIndex = 0;
+
+        sectionData.forEach((row, i) => {
+          if (groupByKey && row[groupByKey] !== currentGroup) {
+            currentGroup = row[groupByKey];
+            colorIndex = (colorIndex + 1) % colors.length;
+            html += `<tr class="fw-group" style="background-color: ${colors[colorIndex]}">`;
+          } else {
+            html += groupByKey ? `<tr style="background-color: ${colors[colorIndex]}">` : `<tr>`;
+          }
+
+          mappingKeys.forEach(key => {
+            let val = row[key] || '';
+            val = val.toString().replace(/\n/g, '<br/>');
+            html += `<td>${val}</td>`;
+          });
+          html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+        return html;
+      };
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>${hostname} Migration Blueprint</title>
+          <style>${styles}</style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Migration Blueprint ${hostname}</h1>
+              <p><small>Report Generated using GITD Infra Config Analyzer Tool v1.4 developed by Akhyar</small></p>
+            </div>
+
+            <div class="section">
+              <h2>1. Firewall Target Details (OPNsense)</h2>
+              ${generateTable(data.targetDetails, ['Site Name', 'Domain', 'Hostname', 'Username', 'Password'], ['siteName', 'domain', 'hostname', 'username', 'password'])}
+            </div>
+
+            <div class="section">
+              <h2>2. Network Aliases & Definitions</h2>
+              ${generateTable(data.aliases, ['Alias Name', 'Definition'], ['name', 'definition'])}
+            </div>
+
+            <div class="section">
+              <h2>3. PPPoE & ISP Credentials</h2>
+              ${generateTable(data.pppoe, ['Interface', 'Username', 'Password'], ['interface', 'username', 'password'])}
+            </div>
+
+            <div class="section">
+              <h2>4. Interface Mapping (Physical to Logical)</h2>
+              ${generateTable(data.interfaces, ['Logical ID', 'VLAN ID', 'Physical Port / Description', 'IP / Subnet'], ['logicalId', 'vlanId', 'physicalPort', 'ipSubnet'])}
+            </div>
+
+            <div class="section">
+              <h2>5. DHCP Server Ranges by Interface</h2>
+              ${generateTable(data.dhcp, ['Interface', 'Start', 'End', 'Gateway', 'DNS (1 & 2)'], ['interface', 'start', 'end', 'gateway', 'dns'])}
+            </div>
+
+            <div class="section">
+              <h2>6. Static Routing Table</h2>
+              ${generateTable(data.routing, ['Destination Network', 'Gateway', 'Description'], ['destination', 'gateway', 'description'])}
+            </div>
+
+            <div class="section">
+              <h2>7. NAT Port Forwarding (Incoming Traffic)</h2>
+              ${generateTable(data.nat, ['Interface', 'Protocol', 'External Port', 'Target Internal IP', 'Redirect Port', 'Description'], ['interface', 'protocol', 'externalPort', 'targetIp', 'redirectPort', 'description'])}
+            </div>
+
+            <div class="section">
+              <h2>8. Firewall Rules</h2>
+              ${generateTable(data.firewall, ['Interface', 'Action', 'Protocol', 'Source', 'Destination', 'Port', 'Description'], ['interface', 'action', 'protocol', 'source', 'destination', 'port', 'description'], 'interface')}
+            </div>
+
+            <div class="section">
+              <h2>9. IPsec VPN (Phase 1 & Phase 2 Parameters)</h2>
+              ${generateTable(data.ipsec, ['Tunnel Description', 'Remote GW', 'Phase 1 Encryption', 'Phase 2 Details', 'PSK'], ['description', 'remoteGw', 'phase1Enc', 'phase2Details', 'psk'])}
+            </div>
+
+            <div class="section">
+              <h2>10. Remote Logging (SIEM / Syslog Forwarding)</h2>
+              ${generateTable(data.syslog, ['Server IP', 'Log Types', 'Transport Port'], ['serverIp', 'logTypes', 'transportPort'])}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      return htmlContent;
+    };
+
+    // --- COMPONENTS ---
+
+    // Auto-resizing Textarea for fluid cells
+    const FluidTextarea = ({ value, onChange, id }) => {
+      const textareaRef = useRef(null);
+
+      const resize = () => {
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+      };
+
+      useEffect(() => { resize(); }, [value]);
+
+      return (
+        <textarea
+          id={id}
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            resize();
+          }}
+          className="w-full bg-transparent outline-none resize-none overflow-hidden text-sm"
+          style={{ minHeight: '24px', backgroundColor: 'transparent', color: THEME.text }}
+          rows={1}
+        />
+      );
+    };
+
+    function App() {
+      const [step, setStep] = useState(1);
+      const [error, setError] = useState('');
+      const [data, setData] = useState(null);
+      const [history, setHistory] = useState([]);
+      const [frOpen, setFrOpen] = useState(false);
+      const [frText, setFrText] = useState('');
+      const [frReplace, setFrReplace] = useState('');
+      const [frCaseSensitive, setFrCaseSensitive] = useState(false);
+      const [frExactMatch, setFrExactMatch] = useState(false);
+      const [frMatches, setFrMatches] = useState([]);
+      const [frCurrentIdx, setFrCurrentIdx] = useState(-1);
+
+      const saveState = (newData) => {
+        setHistory(prev => {
+          const newHist = [...prev, JSON.stringify(data)];
+          if (newHist.length > 20) newHist.shift();
+          return newHist;
+        });
+        setData(newData);
+      };
+
+      const handleUndo = () => {
+        if (history.length > 0) {
+          const prevDataStr = history[history.length - 1];
+          setData(JSON.parse(prevDataStr));
+          setHistory(prev => prev.slice(0, -1));
+        }
+      };
+
+      const handleFile = (file) => {
+        setError('');
+        if (!file.name.endsWith('.xml')) {
+          setError('Please upload a valid XML file.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const parsed = parsePfSenseXML(e.target.result);
+            setData(parsed);
+            setStep(2);
+          } catch (err) {
+            setError(err.message || 'Error parsing XML file.');
+          }
+        };
+        reader.onerror = () => setError('Error reading file.');
+        reader.readAsText(file);
+      };
+
+      const handleCellChange = (section, index, key, value) => {
+        const newData = JSON.parse(JSON.stringify(data));
+        const oldVal = newData[section][index][key];
+        const logicalId = newData[section][index].logicalId;
+        
+        newData[section][index][key] = value;
+
+        if (section === 'interfaces') {
+          if (key === 'logicalId' && oldVal !== value) {
+            const oldId = (oldVal || '').toLowerCase();
+            const newId = value;
+            
+            newData.dhcp.forEach(row => {
+              if ((row.interface || '').toLowerCase() === oldId) row.interface = newId;
+            });
+            newData.nat.forEach(row => {
+              if ((row.interface || '').toLowerCase() === oldId) row.interface = newId.toLowerCase();
+            });
+            newData.firewall.forEach(row => {
+              if ((row.interface || '').toLowerCase() === oldId) row.interface = newId.toLowerCase();
+            });
+          }
+          
+          if (key === 'ipSubnet' && oldVal !== value) {
+            const newIp = value.split('/')[0];
+            const currLogicalId = (logicalId || '').toLowerCase();
+            
+            newData.dhcp.forEach(row => {
+              if ((row.interface || '').toLowerCase() === currLogicalId) {
+                row.gateway = newIp;
+              }
+            });
+          }
+        }
+
+        saveState(newData);
+      };
+
+      const handleRowMove = (section, index, dir) => {
+        if (index + dir < 0 || index + dir >= data[section].length) return;
+        const newData = JSON.parse(JSON.stringify(data));
+        const temp = newData[section][index];
+        newData[section][index] = newData[section][index + dir];
+        newData[section][index + dir] = temp;
+        saveState(newData);
+      };
+
+      const handleRowAdd = (section, index) => {
+        const newData = JSON.parse(JSON.stringify(data));
+        const emptyRow = Object.keys(newData[section][0] || {}).reduce((acc, k) => ({...acc, [k]: ''}), {});
+        newData[section].splice(index + 1, 0, emptyRow);
+        saveState(newData);
+      };
+
+      const handleRowDuplicate = (section, index) => {
+        const newData = JSON.parse(JSON.stringify(data));
+        newData[section].splice(index + 1, 0, { ...newData[section][index] });
+        saveState(newData);
+      };
+
+      const handleRowDelete = (section, index) => {
+        const newData = JSON.parse(JSON.stringify(data));
+        newData[section].splice(index, 1);
+        if (newData[section].length === 0) {
+          newData[section].push({});
+        }
+        saveState(newData);
+      };
+
+      const performSearch = useCallback(() => {
+        if (!frText || !data) {
+          setFrMatches([]);
+          setFrCurrentIdx(-1);
+          return;
+        }
+
+        const matches = [];
+        Object.keys(data).forEach(sectionKey => {
+          data[sectionKey].forEach((row, rowIdx) => {
+            Object.keys(row).forEach(colKey => {
+              const cellValue = String(row[colKey] || '');
+              let isMatch = false;
+              
+              if (frExactMatch) {
+                isMatch = frCaseSensitive ? cellValue === frText : cellValue.toLowerCase() === frText.toLowerCase();
+              } else {
+                isMatch = frCaseSensitive ? cellValue.includes(frText) : cellValue.toLowerCase().includes(frText.toLowerCase());
+              }
+
+              if (isMatch) {
+                matches.push({ section: sectionKey, rowIdx, colKey, id: `cell-${sectionKey}-${rowIdx}-${colKey}` });
+              }
+            });
+          });
+        });
+
+        setFrMatches(matches);
+        setFrCurrentIdx(matches.length > 0 ? 0 : -1);
+      }, [data, frText, frCaseSensitive, frExactMatch]);
+
+      useEffect(() => {
+        const t = setTimeout(performSearch, 300);
+        return () => clearTimeout(t);
+      }, [frText, frCaseSensitive, frExactMatch]);
+
+      const focusMatch = (idx) => {
+        if (idx >= 0 && idx < frMatches.length) {
+          const match = frMatches[idx];
+          const el = document.getElementById(match.id);
+          if (el) {
+            el.focus();
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      };
+
+      useEffect(() => { focusMatch(frCurrentIdx); }, [frCurrentIdx, frMatches]);
+
+      const findNext = () => {
+        if (frMatches.length === 0) return;
+        setFrCurrentIdx(prev => (prev + 1) % frMatches.length);
+      };
+
+      const doReplace = () => {
+        if (frCurrentIdx < 0 || frMatches.length === 0) return;
+        const match = frMatches[frCurrentIdx];
+        const newData = JSON.parse(JSON.stringify(data));
+        const curVal = String(newData[match.section][match.rowIdx][match.colKey] || '');
+        
+        let newVal;
+        if (frExactMatch) {
+          newVal = frReplace;
+        } else {
+          if (frCaseSensitive) {
+            newVal = curVal.split(frText).join(frReplace);
+          } else {
+            const regex = new RegExp(frText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+            newVal = curVal.replace(regex, frReplace);
+          }
+        }
+
+        newData[match.section][match.rowIdx][match.colKey] = newVal;
+        saveState(newData);
+        
+        setTimeout(() => {
+          performSearch();
+        }, 50);
+      };
+
+      const doReplaceAllNext = () => {
+        if (frCurrentIdx < 0 || frMatches.length === 0) return;
+        const newData = JSON.parse(JSON.stringify(data));
+        
+        for (let i = frCurrentIdx; i < frMatches.length; i++) {
+          const match = frMatches[i];
+          const curVal = String(newData[match.section][match.rowIdx][match.colKey] || '');
+          let newVal;
+          if (frExactMatch) {
+            newVal = frReplace;
+          } else {
+            if (frCaseSensitive) {
+              newVal = curVal.split(frText).join(frReplace);
+            } else {
+              const regex = new RegExp(frText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig');
+              newVal = curVal.replace(regex, frReplace);
+            }
+          }
+          newData[match.section][match.rowIdx][match.colKey] = newVal;
+        }
+        saveState(newData);
+        setTimeout(() => performSearch(), 50);
+        alert('Replaced remaining matches.');
+      };
+
+      const handleDownload = () => {
+        const htmlString = generateHTMLReport(data);
+        const blob = new Blob([htmlString], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${data.targetDetails[0]?.hostname || 'Firewall'}_Blueprint.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+
+      const renderTable = (title, sectionKey, columns) => {
+        const rows = data[sectionKey] || [];
+        return (
+          <div className="mb-8 overflow-hidden rounded-lg shadow-lg border border-[#4A555B]" style={{ backgroundColor: THEME.surface }}>
+            <div className="flex justify-between items-center px-4 py-3 border-b border-[#4A555B]" style={{ backgroundColor: '#2b3339' }}>
+              <h3 className="text-lg font-semibold" style={{ color: THEME.primary }}>{title}</h3>
+              <button onClick={() => handleRowAdd(sectionKey, -1)} className="p-1 hover:bg-[#4A555B] rounded transition-colors" title="Add Row to Top">
+                <Plus size={18} color={THEME.secondary} />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-[#4A555B] bg-[#323c41]">
+                    {columns.map(col => (
+                      <th key={col.key} className="p-3 font-medium text-sm" style={{ color: THEME.secondary }}>{col.label}</th>
+                    ))}
+                    <th className="p-3 w-32 text-center font-medium text-sm" style={{ color: THEME.secondary }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, rowIdx) => (
+                    <tr key={rowIdx} className="border-b border-[#4A555B] hover:bg-[#3f4b51] transition-colors group">
+                      {columns.map(col => {
+                        const isMatch = frMatches[frCurrentIdx]?.section === sectionKey && frMatches[frCurrentIdx]?.rowIdx === rowIdx && frMatches[frCurrentIdx]?.colKey === col.key;
+                        return (
+                          <td key={col.key} className={`p-0 border-r border-[#4A555B] ${isMatch ? 'ring-2 ring-inset ring-[#A7C080] bg-[#435055]' : ''}`}>
+                            <div className="px-3 py-2">
+                              <FluidTextarea 
+                                id={`cell-${sectionKey}-${rowIdx}-${col.key}`}
+                                value={row[col.key] || ''} 
+                                onChange={(val) => handleCellChange(sectionKey, rowIdx, col.key, val)}
+                              />
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className="p-2 align-top text-center opacity-40 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-center space-x-1">
+                          <button onClick={() => handleRowMove(sectionKey, rowIdx, -1)} className="p-1 hover:bg-[#4A555B] rounded" title="Move Up"><ArrowUp size={14} /></button>
+                          <button onClick={() => handleRowMove(sectionKey, rowIdx, 1)} className="p-1 hover:bg-[#4A555B] rounded" title="Move Down"><ArrowDown size={14} /></button>
+                          <button onClick={() => handleRowDuplicate(sectionKey, rowIdx)} className="p-1 hover:bg-[#4A555B] rounded" title="Duplicate"><Copy size={14} /></button>
+                          <button onClick={() => handleRowAdd(sectionKey, rowIdx)} className="p-1 hover:bg-[#4A555B] rounded" title="Add Below"><Plus size={14} /></button>
+                          <button onClick={() => handleRowDelete(sectionKey, rowIdx)} className="p-1 hover:bg-[#4A555B] rounded hover:text-[#E67E80]" title="Delete"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={columns.length + 1} className="p-4 text-center text-sm opacity-50">No data. Click + to add.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      };
+
+      return (
+        <div className="min-h-screen font-sans" style={{ backgroundColor: THEME.bg, color: THEME.text }}>
+          
+          {/* HEADER */}
+          <header className="p-6 border-b shadow-sm flex items-center justify-between" style={{ borderColor: THEME.border, backgroundColor: THEME.surface }}>
+            <div>
+              <h1 className="text-2xl font-bold tracking-wide flex items-center gap-3" style={{ color: THEME.primary }}>
+                <FileCode2 size={28} />
+                pfSense to OPNsense Blueprint
+              </h1>
+              <p className="text-sm opacity-70 mt-1">Config Analyzer Tool v1.4 • GITD Infra</p>
+            </div>
+            {step > 1 && (
+              <div className="flex items-center space-x-4">
+                <button 
+                  onClick={handleUndo} 
+                  disabled={history.length === 0}
+                  className="flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors disabled:opacity-30"
+                  style={{ backgroundColor: THEME.border, color: THEME.text }}
+                >
+                  <Undo size={16} /> Undo
+                </button>
+                <button 
+                  onClick={() => setFrOpen(!frOpen)} 
+                  className="flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors hover:opacity-90"
+                  style={{ backgroundColor: THEME.secondary, color: THEME.bg }}
+                >
+                  <Search size={16} /> Find & Replace
+                </button>
+                {step === 2 && (
+                  <button 
+                    onClick={() => setStep(3)} 
+                    className="flex items-center gap-2 px-6 py-2 rounded font-medium transition-all hover:brightness-110 shadow-lg"
+                    style={{ backgroundColor: THEME.primary, color: THEME.bg }}
+                  >
+                    Commit Changes <ChevronRight size={18} />
+                  </button>
+                )}
+                {step === 3 && (
+                  <button 
+                    onClick={handleDownload} 
+                    className="flex items-center gap-2 px-6 py-2 rounded font-medium transition-all hover:brightness-110 shadow-lg animate-pulse"
+                    style={{ backgroundColor: '#A7C080', color: THEME.bg }}
+                  >
+                    <Download size={18} /> Download HTML Report
+                  </button>
+                )}
+              </div>
+            )}
+          </header>
+
+          {error && (
+            <div className="m-6 p-4 rounded flex items-center justify-between shadow-lg" style={{ backgroundColor: THEME.danger, color: '#fff' }}>
+              <div className="flex items-center gap-3"><AlertTriangle /> <span>{error}</span></div>
+              <button onClick={() => setError('')}><X size={20} /></button>
+            </div>
+          )}
+
+          <main className="p-8 max-w-[1600px] mx-auto">
+            
+            {step === 1 && (
+              <div className="mt-20 max-w-2xl mx-auto">
+                <div 
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
+                  className="border-2 border-dashed rounded-xl p-16 flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:bg-opacity-50"
+                  style={{ borderColor: THEME.primary, backgroundColor: THEME.surface }}
+                  onClick={() => document.getElementById('file-upload').click()}
+                >
+                  <Upload size={64} style={{ color: THEME.primary }} className="mb-6 opacity-80" />
+                  <h2 className="text-2xl font-bold mb-2">Upload pfSense XML</h2>
+                  <p className="opacity-70 mb-8">Drag and drop your backup configuration file here, or click to browse.</p>
+                  <input type="file" id="file-upload" className="hidden" accept=".xml" onChange={(e) => handleFile(e.target.files[0])} />
+                  <button 
+                    className="px-8 py-3 rounded-lg font-bold transition-all shadow-lg"
+                    style={{ backgroundColor: THEME.primary, color: THEME.bg }}
+                  >
+                    Select File
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {step > 1 && data && (
+              <div className={`space-y-6 ${step === 3 ? 'opacity-80 pointer-events-none' : ''}`}>
+                {step === 3 && (
+                  <div className="bg-[#A7C080] text-[#2D353B] p-4 rounded-lg shadow-lg font-bold text-center flex items-center justify-center gap-3 mb-8 text-lg">
+                    <FileCode2 /> Changes Committed. Ready to Download Blueprint.
+                  </div>
+                )}
+                
+                {renderTable('1. Firewall Target Details', 'targetDetails', [
+                  { key: 'siteName', label: 'Site Name' },
+                  { key: 'domain', label: 'Domain' },
+                  { key: 'hostname', label: 'Hostname' },
+                  { key: 'username', label: 'Username' },
+                  { key: 'password', label: 'Password' }
+                ])}
+
+                {renderTable('2. Network Aliases & Definitions', 'aliases', [
+                  { key: 'name', label: 'Alias Name' },
+                  { key: 'definition', label: 'Definition' }
+                ])}
+
+                {renderTable('3. PPPoE & ISP Credentials', 'pppoe', [
+                  { key: 'interface', label: 'Interface' },
+                  { key: 'username', label: 'Username' },
+                  { key: 'password', label: 'Password (Decoded)' }
+                ])}
+
+                {renderTable('4. Interface Mapping', 'interfaces', [
+                  { key: 'logicalId', label: 'Logical ID' },
+                  { key: 'vlanId', label: 'VLAN ID' },
+                  { key: 'physicalPort', label: 'Physical Port / Desc' },
+                  { key: 'ipSubnet', label: 'IP / Subnet' }
+                ])}
+
+                {renderTable('5. DHCP Server Ranges', 'dhcp', [
+                  { key: 'interface', label: 'Interface' },
+                  { key: 'start', label: 'Start IP' },
+                  { key: 'end', label: 'End IP' },
+                  { key: 'gateway', label: 'Gateway' },
+                  { key: 'dns', label: 'DNS (1 & 2)' }
+                ])}
+
+                {renderTable('6. Static Routing Table', 'routing', [
+                  { key: 'destination', label: 'Destination Network' },
+                  { key: 'gateway', label: 'Gateway' },
+                  { key: 'description', label: 'Description' }
+                ])}
+
+                {renderTable('7. NAT Port Forwarding', 'nat', [
+                  { key: 'interface', label: 'Interface' },
+                  { key: 'protocol', label: 'Protocol' },
+                  { key: 'externalPort', label: 'External Port' },
+                  { key: 'targetIp', label: 'Target Internal IP' },
+                  { key: 'redirectPort', label: 'Redirect Port' },
+                  { key: 'description', label: 'Description' }
+                ])}
+
+                {renderTable('8. Firewall Rules', 'firewall', [
+                  { key: 'interface', label: 'Interface' },
+                  { key: 'action', label: 'Action' },
+                  { key: 'protocol', label: 'Protocol' },
+                  { key: 'source', label: 'Source' },
+                  { key: 'destination', label: 'Destination' },
+                  { key: 'port', label: 'Port' },
+                  { key: 'description', label: 'Description' }
+                ])}
+
+                {renderTable('9. IPsec VPN Parameters', 'ipsec', [
+                  { key: 'description', label: 'Tunnel Description' },
+                  { key: 'remoteGw', label: 'Remote GW' },
+                  { key: 'phase1Enc', label: 'Phase 1 Encryption' },
+                  { key: 'phase2Details', label: 'Phase 2 Details' },
+                  { key: 'psk', label: 'PSK' }
+                ])}
+
+                {renderTable('10. Remote Logging', 'syslog', [
+                  { key: 'serverIp', label: 'Server IP' },
+                  { key: 'logTypes', label: 'Log Types' },
+                  { key: 'transportPort', label: 'Transport Port' }
+                ])}
+                
+                {step === 3 && (
+                   <div className="flex justify-center mt-8 pb-16 pointer-events-auto">
+                     <button onClick={() => setStep(2)} className="text-sm underline opacity-70 hover:opacity-100">Back to Edit</button>
+                   </div>
+                )}
+              </div>
+            )}
+          </main>
+
+          {frOpen && step === 2 && (
+            <div className="fixed bottom-8 right-8 w-80 rounded-lg shadow-2xl border flex flex-col pointer-events-auto z-50 transition-all" style={{ backgroundColor: THEME.surface, borderColor: THEME.border }}>
+              <div className="flex justify-between items-center p-3 border-b" style={{ borderColor: THEME.border, backgroundColor: '#2b3339' }}>
+                <h3 className="font-bold flex items-center gap-2" style={{ color: THEME.secondary }}><Replace size={16}/> Find & Replace</h3>
+                <button onClick={() => setFrOpen(false)} className="hover:text-white opacity-70 hover:opacity-100"><X size={16}/></button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div>
+                  <input 
+                    type="text" 
+                    placeholder="Find..." 
+                    value={frText}
+                    onChange={e => setFrText(e.target.value)}
+                    className="w-full p-2 rounded text-sm outline-none border"
+                    style={{ backgroundColor: THEME.bg, borderColor: THEME.border, color: THEME.text }}
+                  />
+                  <div className="flex items-center justify-between mt-2 text-xs opacity-70">
+                    <label className="flex items-center gap-1 cursor-pointer hover:text-white">
+                      <input type="checkbox" checked={frCaseSensitive} onChange={e => setFrCaseSensitive(e.target.checked)} /> Case Sensitive
+                    </label>
+                    <label className="flex items-center gap-1 cursor-pointer hover:text-white">
+                      <input type="checkbox" checked={frExactMatch} onChange={e => setFrExactMatch(e.target.checked)} /> Entire Cell
+                    </label>
+                  </div>
+                </div>
+                
+                <input 
+                  type="text" 
+                  placeholder="Replace with..." 
+                  value={frReplace}
+                  onChange={e => setFrReplace(e.target.value)}
+                  className="w-full p-2 rounded text-sm outline-none border"
+                  style={{ backgroundColor: THEME.bg, borderColor: THEME.border, color: THEME.text }}
+                />
+                
+                <div className="flex justify-between items-center pt-2">
+                  <span className="text-xs font-mono" style={{ color: THEME.primary }}>
+                    {frMatches.length > 0 ? `${frCurrentIdx + 1} / ${frMatches.length}` : '0 / 0'}
+                  </span>
+                  <div className="space-x-2">
+                    <button 
+                      onClick={findNext} 
+                      disabled={frMatches.length === 0}
+                      className="px-3 py-1 text-xs rounded font-bold disabled:opacity-30"
+                      style={{ backgroundColor: THEME.primary, color: THEME.bg }}
+                    >
+                      Find Next
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex space-x-2 pt-2 border-t" style={{ borderColor: THEME.border }}>
+                   <button 
+                      onClick={doReplace} 
+                      disabled={frMatches.length === 0}
+                      className="flex-1 px-2 py-1 text-xs rounded font-bold border disabled:opacity-30 transition-colors hover:bg-opacity-20"
+                      style={{ borderColor: THEME.secondary, color: THEME.secondary }}
+                    >
+                      Replace
+                    </button>
+                    <button 
+                      onClick={doReplaceAllNext} 
+                      disabled={frMatches.length === 0}
+                      className="flex-1 px-2 py-1 text-xs rounded font-bold border disabled:opacity-30 transition-colors hover:bg-opacity-20"
+                      style={{ borderColor: THEME.danger, color: THEME.danger }}
+                    >
+                      Replace All Next
+                    </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    // Render ke #root
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
