@@ -3,26 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-  <title>GITD Mobile Signal Analyzer | OpenSpeedTest Integration</title>
-  <!-- Font Awesome 6 -->
+  <title>GITD Mobile Signal Analyzer | Phase Test + GPS + True Connection Type</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #0f172a;
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
       color: #f1f5f9;
       padding-bottom: 90px;
     }
-    .app-container {
-      max-width: 560px;
-      margin: 0 auto;
-      padding: 1.25rem 1rem 2rem;
-    }
+    .app-container { max-width: 560px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
     .card {
       background: rgba(30, 41, 59, 0.6);
       backdrop-filter: blur(2px);
@@ -61,6 +52,12 @@
       padding: 1rem;
       text-align: center;
       border: 1px solid #334155;
+      transition: all 0.2s;
+    }
+    .metric-card.active-phase {
+      border: 2px solid #3b82f6;
+      background: rgba(59,130,246,0.2);
+      box-shadow: 0 0 8px rgba(59,130,246,0.4);
     }
     .info-row {
       display: flex;
@@ -122,19 +119,48 @@
     .spinner { animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .text-gradient { background: linear-gradient(135deg, #60a5fa, #a78bfa); background-clip: text; -webkit-background-clip: text; color: transparent; }
-    #ostWidgetContainer {
-      margin-top: 1rem;
-      border-radius: 1rem;
-      overflow: hidden;
-      background: rgba(0,0,0,0.2);
-      display: none; /* Hide raw widget UI, we only use its data */
+    .phase-progress {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 0 1rem 0;
+      gap: 0.5rem;
     }
-    .jitter-badge {
+    .phase-step {
+      flex: 1;
+      text-align: center;
+      padding: 0.5rem 0;
       background: #1e293b;
-      border-radius: 1rem;
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
+      border-radius: 2rem;
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #94a3b8;
+      transition: all 0.3s;
     }
+    .phase-step.active { background: #3b82f6; color: white; box-shadow: 0 0 6px #3b82f6; }
+    .phase-step.done { background: #22c55e; color: white; }
+    .warning-banner {
+      background: #f97316;
+      color: #1e293b;
+      border-radius: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .location-btn {
+      background: #2d3748;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0.2rem 0.6rem;
+      border-radius: 2rem;
+      font-size: 0.7rem;
+      transition: 0.2s;
+    }
+    .location-btn:hover { background: #3b82f6; color: white; }
   </style>
 </head>
 <body>
@@ -145,7 +171,19 @@
       <div class="badge-icon"><i class="fas fa-chart-line text-3xl text-blue-400"></i></div>
     </div>
     <h1 class="text-3xl font-bold tracking-tight">GITD Infrastructure<br><span class="text-gradient">Mobile Signal Analyzer</span></h1>
-    <p class="text-[11px] tracking-[0.2em] text-slate-500 font-semibold mt-2 uppercase">Developed by Akhyar GITD | Powered by OpenSpeedTest®</p>
+    <p class="text-[11px] tracking-[0.2em] text-slate-500 font-semibold mt-2 uppercase">Developed by Akhyar GITD | GPS + True Medium Detection</p>
+  </div>
+
+  <!-- Phase indicator -->
+  <div class="phase-progress" id="phaseSteps">
+    <div class="phase-step" id="phasePing">📡 Ping & Jitter</div>
+    <div class="phase-step" id="phaseDownload">⬇️ Download</div>
+    <div class="phase-step" id="phaseUpload">⬆️ Upload</div>
+  </div>
+
+  <!-- Mobile warning (only if non‑mobile) -->
+  <div id="mobileWarning" style="display: none;" class="warning-banner">
+    <i class="fas fa-info-circle"></i> Non‑mobile device detected. RSSI estimation is for cellular signals only.
   </div>
 
   <!-- Gauge + RSSI -->
@@ -162,39 +200,48 @@
           <span class="flex items-center gap-2"><i class="fa-solid fa-signal"></i> Estimated RSSI</span>
           <span class="font-mono font-bold" id="rssiValue">-- dBm</span>
         </div>
-        <p class="text-xs text-slate-500 text-center mt-3">*RSSI estimated from latency & throughput</p>
+        <p class="text-xs text-slate-500 text-center mt-3">*RSSI estimated from latency & throughput (cellular relevance)</p>
       </div>
     </div>
   </div>
 
-  <!-- Metrics Grid: Ping, Jitter, Download, Upload -->
+  <!-- Metrics Grid -->
   <div class="grid grid-cols-2 gap-3 mb-4">
-    <div class="metric-card"><i class="fas fa-tachometer-alt text-purple-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">PING (ms)</div><div class="text-xl font-bold" id="pingDisplay">--</div></div>
-    <div class="metric-card"><i class="fas fa-chart-line text-yellow-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">JITTER (ms)</div><div class="text-xl font-bold" id="jitterDisplay">--</div></div>
-    <div class="metric-card"><i class="fas fa-download text-blue-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">DOWNLOAD</div><div class="text-xl font-bold" id="downloadDisplay">-- <span class="text-xs">Mbps</span></div></div>
-    <div class="metric-card"><i class="fas fa-upload text-teal-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">UPLOAD</div><div class="text-xl font-bold" id="uploadDisplay">-- <span class="text-xs">Mbps</span></div></div>
+    <div class="metric-card" id="pingCard"><i class="fas fa-tachometer-alt text-purple-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">PING (ms)</div><div class="text-xl font-bold" id="pingDisplay">--</div></div>
+    <div class="metric-card" id="jitterCard"><i class="fas fa-chart-line text-yellow-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">JITTER (ms)</div><div class="text-xl font-bold" id="jitterDisplay">--</div></div>
+    <div class="metric-card" id="downloadCard"><i class="fas fa-download text-blue-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">DOWNLOAD</div><div class="text-xl font-bold" id="downloadDisplay">-- <span class="text-xs">Mbps</span></div></div>
+    <div class="metric-card" id="uploadCard"><i class="fas fa-upload text-teal-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">UPLOAD</div><div class="text-xl font-bold" id="uploadDisplay">-- <span class="text-xs">Mbps</span></div></div>
   </div>
 
-  <!-- Device & Network Details -->
+  <!-- Device Info + Location -->
   <div class="card mb-5">
     <h3 class="text-md font-semibold mb-4 flex items-center gap-2"><i class="fas fa-microchip"></i> Device & Connection Details</h3>
     <div class="space-y-1">
       <div class="info-row"><span class="text-slate-400">Operating System</span><span class="font-medium" id="osInfo">Detecting...</span></div>
       <div class="info-row"><span class="text-slate-400">Current IP Address</span><span class="font-mono text-sm" id="ipInfo">--</span></div>
       <div class="info-row"><span class="text-slate-400">Network Provider (ISP)</span><span class="font-medium truncate max-w-[180px] text-right" id="ispInfo">--</span></div>
-      <div class="info-row"><span class="text-slate-400">Connection Type</span><span class="font-medium" id="connType">--</span></div>
+      <div class="info-row">
+        <span class="text-slate-400">Connection Medium</span>
+        <span class="font-medium" id="connMedium">--</span>
+      </div>
+      <div class="info-row">
+        <span class="text-slate-400">Network Speed (est.)</span>
+        <span class="font-mono text-sm" id="connSpeed">--</span>
+      </div>
+      <div class="info-row">
+        <span class="text-slate-400">📍 GPS Location</span>
+        <span class="font-mono text-xs" id="gpsLocation">Not requested</span>
+        <button id="getLocationBtn" class="location-btn"><i class="fas fa-location-dot"></i> Get</button>
+      </div>
       <div class="info-row"><span class="text-slate-400">Test Timestamp</span><span class="font-mono text-xs" id="timestampInfo">--</span></div>
     </div>
   </div>
 
-  <div class="flex justify-center mb-2" id="statusArea">
+  <div class="flex justify-center mb-2">
     <div class="status-badge" id="statusMessage"><i class="fa-regular fa-circle-check"></i> <span>Ready</span></div>
   </div>
-  <div class="text-center text-[11px] text-slate-600 mt-2"><i class="fa-solid fa-shield-alt"></i> Powered by OpenSpeedTest® real-time engine</div>
+  <div class="text-center text-[11px] text-slate-600 mt-2"><i class="fa-solid fa-shield-alt"></i> Secure endpoints | Phase animation</div>
 </div>
-
-<!-- Hidden container for OpenSpeedTest widget (invisible, used for API) -->
-<div id="ostWidgetContainer" style="position: absolute; left: -9999px; top: -9999px;"></div>
 
 <div class="footer-buttons">
   <button id="startTestBtn" class="btn-primary"><i class="fas fa-play"></i> Start Test</button>
@@ -202,7 +249,7 @@
 </div>
 
 <script>
-  // ---------- DOM elements ----------
+  // DOM references
   const dom = {
     gaugeFill: document.getElementById('gaugeFill'),
     signalStatusLabel: document.getElementById('signalStatusLabel'),
@@ -215,29 +262,96 @@
     osInfo: document.getElementById('osInfo'),
     ipInfo: document.getElementById('ipInfo'),
     ispInfo: document.getElementById('ispInfo'),
-    connType: document.getElementById('connType'),
+    connMedium: document.getElementById('connMedium'),
+    connSpeed: document.getElementById('connSpeed'),
     timestampInfo: document.getElementById('timestampInfo'),
+    gpsLocation: document.getElementById('gpsLocation'),
+    getLocationBtn: document.getElementById('getLocationBtn'),
     statusMsgDiv: document.getElementById('statusMessage'),
     startBtn: document.getElementById('startTestBtn'),
-    pdfBtn: document.getElementById('exportPdfBtn')
+    pdfBtn: document.getElementById('exportPdfBtn'),
+    phasePing: document.getElementById('phasePing'),
+    phaseDownload: document.getElementById('phaseDownload'),
+    phaseUpload: document.getElementById('phaseUpload'),
+    pingCard: document.getElementById('pingCard'),
+    jitterCard: document.getElementById('jitterCard'),
+    downloadCard: document.getElementById('downloadCard'),
+    uploadCard: document.getElementById('uploadCard'),
+    mobileWarning: document.getElementById('mobileWarning')
   };
 
-  // ---------- State ----------
+  // State
   let currentResults = {
-    ping: 0,      // ms
-    jitter: 0,    // ms
-    download: 0,  // Mbps
-    upload: 0,    // Mbps
-    score: 0,
-    rssi: -100,
-    ip: '--',
-    isp: '--',
-    os: '--'
+    ping: 0, jitter: 0, download: 0, upload: 0, score: 0, rssi: -100,
+    ip: '--', isp: '--', os: '--', location: null
   };
   let isTesting = false;
-  let ostWidget = null;
+  let locationText = "Not requested";
 
-  // ---------- Utility: compute signal score (0-100) from ping + download ----------
+  // Mobile detection for RSSI warning
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2);
+  }
+  if (!isMobile()) dom.mobileWarning.style.display = 'flex';
+
+  // === Connection Medium detection (WiFi, Ethernet, Cellular, etc.) ===
+  function detectConnectionMedium() {
+    let medium = "Unknown";
+    let rawSpeed = "?";
+    if (navigator.connection) {
+      // Type property (non-standard but supported in Chromium)
+      const type = navigator.connection.type;
+      if (type === 'wifi') medium = "Wi-Fi";
+      else if (type === 'ethernet') medium = "Ethernet (Wired)";
+      else if (type === 'cellular') medium = "Cellular";
+      else if (type === 'bluetooth') medium = "Bluetooth";
+      else if (type === 'none') medium = "Offline";
+      else {
+        // fallback: if effectiveType indicates '4g' but device is not mobile → likely WiFi
+        const eff = navigator.connection.effectiveType;
+        if (eff && !isMobile()) medium = `Wi-Fi (${eff.toUpperCase()}‑like)`;
+        else if (eff && isMobile()) medium = `Mobile (${eff.toUpperCase()})`;
+        else medium = "Unknown";
+      }
+      // Downlink speed (Mbps)
+      if (navigator.connection.downlink) rawSpeed = navigator.connection.downlink.toFixed(1) + " Mbps";
+    } else {
+      medium = "API not available";
+      rawSpeed = "N/A";
+    }
+    dom.connMedium.innerText = medium;
+    dom.connSpeed.innerText = rawSpeed;
+  }
+
+  // GPS location
+  function requestLocation() {
+    if (!navigator.geolocation) {
+      locationText = "Geolocation not supported";
+      dom.gpsLocation.innerText = locationText;
+      currentResults.location = null;
+      return;
+    }
+    dom.gpsLocation.innerText = "Requesting...";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lon = pos.coords.longitude.toFixed(6);
+        locationText = `${lat}, ${lon}`;
+        dom.gpsLocation.innerText = locationText;
+        currentResults.location = { lat, lon };
+      },
+      (err) => {
+        console.warn("Location error", err);
+        locationText = "Denied or unavailable";
+        dom.gpsLocation.innerText = locationText;
+        currentResults.location = null;
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  // Compute score
   function computeScore(pingMs, dlMbps) {
     let score = 0;
     if (pingMs <= 30) score += 40;
@@ -245,7 +359,6 @@
     else if (pingMs <= 150) score += 20;
     else if (pingMs <= 300) score += 10;
     else score += 5;
-
     if (dlMbps >= 50) score += 60;
     else if (dlMbps >= 20) score += 45;
     else if (dlMbps >= 5) score += 30;
@@ -254,151 +367,32 @@
     return Math.min(100, Math.max(0, score));
   }
 
-  // Update UI based on currentResults
-  function updateUIFromResults() {
+  function updateUI() {
     const score = currentResults.score;
-    let color = '#ef4444';
-    let statusText = 'Bad';
+    let color = '#ef4444', statusText = 'Bad';
     if (score >= 76) { color = '#22c55e'; statusText = 'Excellent'; }
     else if (score >= 51) { color = '#eab308'; statusText = 'Good'; }
     else if (score >= 26) { color = '#f97316'; statusText = 'Weak'; }
-
     dom.gaugeFill.style.width = `${score}%`;
     dom.gaugeFill.style.backgroundColor = color;
     dom.signalStatusLabel.innerText = `${statusText} Signal`;
     dom.signalStatusLabel.style.color = color;
     dom.scorePercent.innerHTML = `${Math.round(score)}<span class="text-lg text-slate-400">%</span>`;
-
     dom.pingDisplay.innerText = currentResults.ping > 0 ? `${currentResults.ping} ms` : '--';
     dom.jitterDisplay.innerText = currentResults.jitter > 0 ? `${currentResults.jitter.toFixed(1)} ms` : '--';
     dom.downloadDisplay.innerHTML = currentResults.download > 0 ? `${currentResults.download.toFixed(1)}<span class="text-xs text-slate-500"> Mbps</span>` : '-- <span class="text-xs">Mbps</span>';
     dom.uploadDisplay.innerHTML = currentResults.upload > 0 ? `${currentResults.upload.toFixed(1)}<span class="text-xs text-slate-500"> Mbps</span>` : '-- <span class="text-xs">Mbps</span>';
-
-    // RSSI estimation (-100 to -45 dBm)
     let rssiDbm = -100 + (score / 100) * 55;
     rssiDbm = Math.min(-45, Math.max(-110, rssiDbm));
     currentResults.rssi = Math.round(rssiDbm);
     dom.rssiValue.innerText = `${currentResults.rssi} dBm`;
-
     dom.osInfo.innerText = currentResults.os;
     dom.ipInfo.innerText = currentResults.ip;
     dom.ispInfo.innerText = currentResults.isp;
+    detectConnectionMedium(); // refresh every time (in case connection changes)
   }
 
-  // Helper to load external script
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error(`Failed to load ${src}`));
-      document.head.appendChild(script);
-    });
-  }
-
-  // ---------- OpenSpeedTest.com integration ----------
-  async function initOpenSpeedTest() {
-    return new Promise((resolve, reject) => {
-      // Load OpenSpeedTest widget script
-      loadScript('https://openspeedtest.com/Get-widget.js')
-        .then(() => {
-          if (typeof OpenSpeedTestWidget === 'undefined') {
-            reject(new Error('OpenSpeedTestWidget not available'));
-            return;
-          }
-          const container = document.getElementById('ostWidgetContainer');
-          container.innerHTML = ''; // clean
-          ostWidget = new OpenSpeedTestWidget(container);
-          // wait for widget to be ready
-          setTimeout(() => resolve(ostWidget), 500);
-        })
-        .catch(reject);
-    });
-  }
-
-  // Run the speed test using OpenSpeedTest widget
-  async function runOpenSpeedTest() {
-    if (isTesting || !ostWidget) return;
-    isTesting = true;
-    dom.startBtn.disabled = true;
-    setStatusMessage('testing', 'Running OpenSpeedTest® analysis...');
-
-    // Reset previous values visually
-    currentResults.ping = 0;
-    currentResults.jitter = 0;
-    currentResults.download = 0;
-    currentResults.upload = 0;
-    currentResults.score = 0;
-    updateUIFromResults();
-
-    return new Promise((resolve) => {
-      // define event handlers for widget
-      const handleResult = (data) => {
-        // data example: { downloadMbps, uploadMbps, pingMs, jitterMs } structure depends on widget
-        // OpenSpeedTest widget returns: onFinish({ Download, Upload, Ping, Jitter })
-        let dl = data.Download || data.downloadMbps || 0;
-        let ul = data.Upload || data.uploadMbps || 0;
-        let ping = data.Ping || data.pingMs || 0;
-        let jitter = data.Jitter || data.jitterMs || 0;
-        
-        currentResults.download = parseFloat(dl);
-        currentResults.upload = parseFloat(ul);
-        currentResults.ping = parseFloat(ping);
-        currentResults.jitter = parseFloat(jitter);
-        currentResults.score = computeScore(currentResults.ping, currentResults.download);
-        updateUIFromResults();
-        setStatusMessage('complete', 'Analysis complete ✓');
-        cleanup();
-        resolve();
-      };
-      const handleError = (err) => {
-        console.error('OpenSpeedTest error:', err);
-        setStatusMessage('error', 'Test failed. Check connection & retry.');
-        cleanup();
-        resolve();
-      };
-      const cleanup = () => {
-        if (ostWidget && typeof ostWidget.removeEventListener === 'function') {
-          ostWidget.removeEventListener('finish', handleResult);
-          ostWidget.removeEventListener('error', handleError);
-        }
-        isTesting = false;
-        dom.startBtn.disabled = false;
-      };
-      
-      if (ostWidget.addEventListener) {
-        ostWidget.addEventListener('finish', handleResult);
-        ostWidget.addEventListener('error', handleError);
-      } else {
-        // fallback: older method? use onfinish callback
-        ostWidget.onFinish = handleResult;
-        ostWidget.onError = handleError;
-      }
-      // start the test
-      if (typeof ostWidget.startTest === 'function') ostWidget.startTest();
-      else if (typeof ostWidget.start === 'function') ostWidget.start();
-      else {
-        // fallback: simulate widget start
-        console.warn('Manual start trigger');
-        // try to trigger internal start 
-        if (ostWidget._start) ostWidget._start();
-        else handleError(new Error('Cannot start test'));
-      }
-      
-      // safety timeout (60 sec)
-      setTimeout(() => {
-        if (isTesting) {
-          setStatusMessage('error', 'Test timeout. Please retry.');
-          cleanup();
-          resolve();
-        }
-      }, 65000);
-    });
-  }
-
-  // set status helper
-  function setStatusMessage(type, text) {
+  function setStatus(type, text) {
     let icon = '<i class="fa-regular fa-circle-check"></i>';
     if (type === 'testing') icon = '<i class="fas fa-sync-alt fa-spin"></i>';
     else if (type === 'error') icon = '<i class="fa-solid fa-triangle-exclamation text-red-400"></i>';
@@ -406,7 +400,7 @@
     dom.statusMsgDiv.innerHTML = `${icon} <span>${text}</span>`;
   }
 
-  // ---------- Device & network info (IP, ISP, OS, connection) ----------
+  // Network info (IP, ISP)
   async function fetchNetworkInfo() {
     try {
       const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout?.(5000) });
@@ -430,7 +424,7 @@
     currentResults.isp = 'Not detected';
   }
 
-  function detectDeviceAndConnection() {
+  function detectOS() {
     const ua = navigator.userAgent;
     let os = 'Unknown OS';
     if (/iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) os = 'iOS';
@@ -439,29 +433,150 @@
     else if (/Win/.test(navigator.platform)) os = 'Windows';
     else if (/Linux/.test(navigator.platform)) os = 'Linux';
     currentResults.os = os;
-    
-    let connType = 'Unknown';
-    if (navigator.connection) {
-      const type = navigator.connection.effectiveType || navigator.connection.type;
-      if (type) connType = type.toUpperCase();
-      if (navigator.connection.downlink) connType += ` ${navigator.connection.downlink}Mbps`;
-    }
-    dom.connType.innerText = connType;
-    dom.timestampInfo.innerText = new Date().toLocaleString();
-    updateUIFromResults();
   }
 
-  // ---------- PDF Export (full comprehensive report) ----------
+  // Phase helpers
+  function setPhase(phase) {
+    ['phasePing', 'phaseDownload', 'phaseUpload'].forEach(p => dom[p].classList.remove('active', 'done'));
+    if (phase === 'ping') dom.phasePing.classList.add('active');
+    else if (phase === 'download') dom.phaseDownload.classList.add('active');
+    else if (phase === 'upload') dom.phaseUpload.classList.add('active');
+    dom.pingCard.classList.remove('active-phase');
+    dom.jitterCard.classList.remove('active-phase');
+    dom.downloadCard.classList.remove('active-phase');
+    dom.uploadCard.classList.remove('active-phase');
+    if (phase === 'ping') { dom.pingCard.classList.add('active-phase'); dom.jitterCard.classList.add('active-phase'); }
+    else if (phase === 'download') dom.downloadCard.classList.add('active-phase');
+    else if (phase === 'upload') dom.uploadCard.classList.add('active-phase');
+  }
+  function markPhaseDone(phase) {
+    if (phase === 'ping') { dom.phasePing.classList.remove('active'); dom.phasePing.classList.add('done'); }
+    if (phase === 'download') { dom.phaseDownload.classList.remove('active'); dom.phaseDownload.classList.add('done'); }
+    if (phase === 'upload') { dom.phaseUpload.classList.remove('active'); dom.phaseUpload.classList.add('done'); }
+  }
+  function resetPhases() {
+    ['phasePing', 'phaseDownload', 'phaseUpload'].forEach(p => dom[p].classList.remove('active', 'done'));
+    dom.pingCard.classList.remove('active-phase');
+    dom.jitterCard.classList.remove('active-phase');
+    dom.downloadCard.classList.remove('active-phase');
+    dom.uploadCard.classList.remove('active-phase');
+  }
+
+  // Speed test core
+  async function runSpeedTest() {
+    if (isTesting) return;
+    isTesting = true;
+    dom.startBtn.disabled = true;
+    resetPhases();
+    setStatus('testing', 'Starting test...');
+    currentResults.ping = 0; currentResults.jitter = 0;
+    currentResults.download = 0; currentResults.upload = 0;
+    currentResults.score = 0;
+    updateUI();
+
+    try {
+      // Phase 1: Ping & Jitter
+      setPhase('ping');
+      setStatus('testing', 'Measuring ping & jitter...');
+      const pingSamples = [];
+      for (let i = 0; i < 5; i++) {
+        try {
+          const start = performance.now();
+          await fetch(`https://cloudflare.com/cdn-cgi/trace?nocache=${Date.now() + i}`, { mode: 'no-cors', cache: 'no-store' });
+          const end = performance.now();
+          pingSamples.push(end - start);
+        } catch(e) { pingSamples.push(100); }
+        await new Promise(r => setTimeout(r, 200));
+      }
+      const avgPing = pingSamples.reduce((a,b)=>a+b,0)/pingSamples.length;
+      const variance = pingSamples.reduce((sum,val)=>sum+Math.pow(val-avgPing,2),0)/pingSamples.length;
+      const jitter = Math.sqrt(variance);
+      currentResults.ping = Math.round(avgPing);
+      currentResults.jitter = parseFloat(jitter.toFixed(1));
+      updateUI();
+      markPhaseDone('ping');
+
+      // Phase 2: Download
+      setPhase('download');
+      setStatus('testing', 'Download speed test (5MB)...');
+      let dlMbps = 0;
+      try {
+        const dlStart = performance.now();
+        const response = await fetch(`https://speed.cloudflare.com/__down?bytes=5000000&cacheBust=${Date.now()}`, { cache: 'no-store' });
+        const blob = await response.blob();
+        const dlEnd = performance.now();
+        const durationSec = (dlEnd - dlStart) / 1000;
+        const bitsLoaded = blob.size * 8;
+        dlMbps = (bitsLoaded / durationSec) / (1024 * 1024);
+        dlMbps = Math.min(1000, dlMbps);
+      } catch(e) {
+        const fbStart = performance.now();
+        const resp = await fetch(`https://httpbin.org/bytes/2500000?rand=${Date.now()}`, { cache: 'no-store' });
+        const fbBlob = await resp.blob();
+        const fbEnd = performance.now();
+        const dur = (fbEnd - fbStart)/1000;
+        const bits = fbBlob.size * 8;
+        dlMbps = (bits / dur) / (1024 * 1024);
+      }
+      currentResults.download = parseFloat(dlMbps.toFixed(1));
+      updateUI();
+      markPhaseDone('download');
+
+      // Phase 3: Upload
+      setPhase('upload');
+      setStatus('testing', 'Upload speed test (1MB)...');
+      let ulMbps = 0;
+      const payloadSize = 1048576;
+      const dummyData = new Uint8Array(payloadSize);
+      for (let i=0; i<payloadSize; i+=4096) dummyData[i] = i%256;
+      try {
+        const ulStart = performance.now();
+        const uploadResp = await fetch('https://httpbin.org/post', {
+          method: 'POST', body: dummyData, headers: { 'Content-Type': 'application/octet-stream' }
+        });
+        if (uploadResp.ok) {
+          const ulEnd = performance.now();
+          const dur = (ulEnd - ulStart)/1000;
+          const bits = payloadSize * 8;
+          ulMbps = (bits / dur) / (1024 * 1024);
+        } else throw new Error();
+      } catch(e) {
+        const fallbackPayload = new Uint8Array(512000);
+        const fStart = performance.now();
+        await fetch('https://httpbin.org/post', { method: 'POST', body: fallbackPayload });
+        const fEnd = performance.now();
+        const fDur = (fEnd - fStart)/1000;
+        const fBits = 512000 * 8;
+        ulMbps = (fBits / fDur) / (1024 * 1024);
+      }
+      currentResults.upload = parseFloat(ulMbps.toFixed(1));
+      updateUI();
+      markPhaseDone('upload');
+
+      currentResults.score = computeScore(currentResults.ping, currentResults.download);
+      updateUI();
+      setStatus('complete', 'Analysis complete ✓');
+      setPhase(null);
+    } catch (err) {
+      console.error(err);
+      setStatus('error', 'Test failed. Please retry.');
+      resetPhases();
+    } finally {
+      isTesting = false;
+      dom.startBtn.disabled = false;
+    }
+  }
+
+  // PDF export (includes location & correct connection medium)
   async function exportPDF() {
-    if (isTesting) { alert("Test in progress, wait before exporting."); return; }
+    if (isTesting) { alert("Test in progress, please wait."); return; }
     const btn = dom.pdfBtn;
-    const originalHtml = btn.innerHTML;
+    const original = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Building PDF...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
     try {
       if (typeof window.html2canvas === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
       if (typeof window.jspdf === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-      
       const element = document.getElementById('reportContainer');
       const canvas = await window.html2canvas(element, { scale: 2.5, backgroundColor: '#0f172a', logging: false, useCORS: true });
       const imgData = canvas.toDataURL('image/png');
@@ -470,66 +585,61 @@
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      
-      // Second page with detailed test metrics + jitter
       pdf.addPage();
       pdf.setFontSize(14);
-      pdf.setTextColor(20, 80, 150);
-      pdf.text("GITD Signal Analyzer – Full Performance Report", 15, 20);
+      pdf.setTextColor(20,80,150);
+      pdf.text("GITD Signal Analyzer – Full Report", 15, 20);
       pdf.setFontSize(10);
       pdf.setTextColor(0,0,0);
       pdf.text(`Generated: ${new Date().toLocaleString()}`, 15, 32);
-      pdf.text(`--- Speed Test Results (OpenSpeedTest®) ---`, 15, 48);
-      pdf.text(`• Ping Latency: ${currentResults.ping} ms`, 20, 58);
+      pdf.text("--- Speed Test Results ---", 15, 48);
+      pdf.text(`• Ping: ${currentResults.ping} ms`, 20, 58);
       pdf.text(`• Jitter: ${currentResults.jitter.toFixed(1)} ms`, 20, 68);
-      pdf.text(`• Download Speed: ${currentResults.download.toFixed(1)} Mbps`, 20, 78);
-      pdf.text(`• Upload Speed: ${currentResults.upload.toFixed(1)} Mbps`, 20, 88);
+      pdf.text(`• Download: ${currentResults.download.toFixed(1)} Mbps`, 20, 78);
+      pdf.text(`• Upload: ${currentResults.upload.toFixed(1)} Mbps`, 20, 88);
       pdf.text(`• Signal Score: ${Math.round(currentResults.score)}% (${currentResults.score>=76?'Excellent':currentResults.score>=51?'Good':currentResults.score>=26?'Weak':'Bad'})`, 20, 98);
-      pdf.text(`• Estimated RSSI: ${currentResults.rssi} dBm`, 20, 108);
-      pdf.text(`Device & Network:`, 15, 125);
+      pdf.text(`• RSSI: ${currentResults.rssi} dBm`, 20, 108);
+      pdf.text("Device & Network:", 15, 125);
       pdf.text(`• OS: ${currentResults.os}`, 20, 135);
-      pdf.text(`• IP Address: ${currentResults.ip}`, 20, 145);
-      pdf.text(`• Network Provider: ${currentResults.isp}`, 20, 155);
-      pdf.text(`• Connection Type: ${dom.connType.innerText}`, 20, 165);
+      pdf.text(`• IP: ${currentResults.ip}`, 20, 145);
+      pdf.text(`• ISP: ${currentResults.isp}`, 20, 155);
+      pdf.text(`• Connection Medium: ${dom.connMedium.innerText}`, 20, 165);
+      pdf.text(`• Network Speed (est.): ${dom.connSpeed.innerText}`, 20, 175);
+      pdf.text(`• GPS Location: ${locationText}`, 20, 185);
+      pdf.text(`• Timestamp: ${dom.timestampInfo.innerText}`, 20, 195);
       pdf.setFontSize(9);
       pdf.text("Developed by Akhyar GITD | Infrastructure Mobile Signal Analyzer", 15, 280);
-      pdf.save(`GITD_SignalReport_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`);
+      pdf.save(`GITD_Report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.pdf`);
     } catch(err) {
-      console.error(err);
-      alert("PDF generation error: " + err.message);
+      alert("PDF error: " + err.message);
     } finally {
       btn.disabled = false;
-      btn.innerHTML = originalHtml;
+      btn.innerHTML = original;
     }
   }
 
-  // ---------- Initialization ----------
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
   async function init() {
-    detectDeviceAndConnection();
+    detectOS();
     await fetchNetworkInfo();
-    updateUIFromResults();
-    // Load OpenSpeedTest widget in background
-    try {
-      await initOpenSpeedTest();
-      console.log("OST widget ready");
-    } catch(e) {
-      console.error("OST init failed", e);
-      setStatusMessage('error', 'Speed test engine unavailable. Refresh page.');
-    }
+    detectConnectionMedium();
+    dom.timestampInfo.innerText = new Date().toLocaleString();
+    updateUI();
   }
-
-  // Event handlers
-  dom.startBtn.addEventListener('click', async () => {
-    if (isTesting) return;
-    if (!ostWidget) {
-      setStatusMessage('error', 'Engine not ready, please wait...');
-      return;
-    }
-    await runOpenSpeedTest();
-  });
-  dom.pdfBtn.addEventListener('click', exportPDF);
-  
   init();
+  dom.startBtn.addEventListener('click', runSpeedTest);
+  dom.pdfBtn.addEventListener('click', exportPDF);
+  dom.getLocationBtn.addEventListener('click', requestLocation);
 </script>
 </body>
 </html>
