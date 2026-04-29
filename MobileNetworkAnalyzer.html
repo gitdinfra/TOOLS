@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
-  <title>GITD Mobile Signal Analyzer | Phase Test + GPS + True Connection Type</title>
+  <title>GITD Mobile Signal Analyzer </title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -150,17 +150,6 @@
       align-items: center;
       gap: 0.5rem;
     }
-    .location-btn {
-      background: #2d3748;
-      border: none;
-      color: #94a3b8;
-      cursor: pointer;
-      padding: 0.2rem 0.6rem;
-      border-radius: 2rem;
-      font-size: 0.7rem;
-      transition: 0.2s;
-    }
-    .location-btn:hover { background: #3b82f6; color: white; }
   </style>
 </head>
 <body>
@@ -171,7 +160,7 @@
       <div class="badge-icon"><i class="fas fa-chart-line text-3xl text-blue-400"></i></div>
     </div>
     <h1 class="text-3xl font-bold tracking-tight">GITD Infrastructure<br><span class="text-gradient">Mobile Signal Analyzer</span></h1>
-    <p class="text-[11px] tracking-[0.2em] text-slate-500 font-semibold mt-2 uppercase">Developed by Akhyar GITD | GPS + True Medium Detection</p>
+    <p class="text-[11px] tracking-[0.2em] text-slate-500 font-semibold mt-2 uppercase">Developed by Akhyar GITD</p>
   </div>
 
   <!-- Phase indicator -->
@@ -181,7 +170,7 @@
     <div class="phase-step" id="phaseUpload">⬆️ Upload</div>
   </div>
 
-  <!-- Mobile warning (only if non‑mobile) -->
+  <!-- Mobile warning (if non‑mobile) -->
   <div id="mobileWarning" style="display: none;" class="warning-banner">
     <i class="fas fa-info-circle"></i> Non‑mobile device detected. RSSI estimation is for cellular signals only.
   </div>
@@ -213,7 +202,7 @@
     <div class="metric-card" id="uploadCard"><i class="fas fa-upload text-teal-400 text-xl mb-2 block"></i><div class="text-xs text-slate-400">UPLOAD</div><div class="text-xl font-bold" id="uploadDisplay">-- <span class="text-xs">Mbps</span></div></div>
   </div>
 
-  <!-- Device Info + Location -->
+  <!-- Device Info + Location (no separate button) -->
   <div class="card mb-5">
     <h3 class="text-md font-semibold mb-4 flex items-center gap-2"><i class="fas fa-microchip"></i> Device & Connection Details</h3>
     <div class="space-y-1">
@@ -231,7 +220,6 @@
       <div class="info-row">
         <span class="text-slate-400">📍 GPS Location</span>
         <span class="font-mono text-xs" id="gpsLocation">Not requested</span>
-        <button id="getLocationBtn" class="location-btn"><i class="fas fa-location-dot"></i> Get</button>
       </div>
       <div class="info-row"><span class="text-slate-400">Test Timestamp</span><span class="font-mono text-xs" id="timestampInfo">--</span></div>
     </div>
@@ -266,7 +254,6 @@
     connSpeed: document.getElementById('connSpeed'),
     timestampInfo: document.getElementById('timestampInfo'),
     gpsLocation: document.getElementById('gpsLocation'),
-    getLocationBtn: document.getElementById('getLocationBtn'),
     statusMsgDiv: document.getElementById('statusMessage'),
     startBtn: document.getElementById('startTestBtn'),
     pdfBtn: document.getElementById('exportPdfBtn'),
@@ -300,7 +287,6 @@
     let medium = "Unknown";
     let rawSpeed = "?";
     if (navigator.connection) {
-      // Type property (non-standard but supported in Chromium)
       const type = navigator.connection.type;
       if (type === 'wifi') medium = "Wi-Fi";
       else if (type === 'ethernet') medium = "Ethernet (Wired)";
@@ -308,13 +294,11 @@
       else if (type === 'bluetooth') medium = "Bluetooth";
       else if (type === 'none') medium = "Offline";
       else {
-        // fallback: if effectiveType indicates '4g' but device is not mobile → likely WiFi
         const eff = navigator.connection.effectiveType;
         if (eff && !isMobile()) medium = `Wi-Fi (${eff.toUpperCase()}‑like)`;
         else if (eff && isMobile()) medium = `Mobile (${eff.toUpperCase()})`;
         else medium = "Unknown";
       }
-      // Downlink speed (Mbps)
       if (navigator.connection.downlink) rawSpeed = navigator.connection.downlink.toFixed(1) + " Mbps";
     } else {
       medium = "API not available";
@@ -324,31 +308,36 @@
     dom.connSpeed.innerText = rawSpeed;
   }
 
-  // GPS location
+  // Request location (returns promise)
   function requestLocation() {
-    if (!navigator.geolocation) {
-      locationText = "Geolocation not supported";
-      dom.gpsLocation.innerText = locationText;
-      currentResults.location = null;
-      return;
-    }
-    dom.gpsLocation.innerText = "Requesting...";
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude.toFixed(6);
-        const lon = pos.coords.longitude.toFixed(6);
-        locationText = `${lat}, ${lon}`;
-        dom.gpsLocation.innerText = locationText;
-        currentResults.location = { lat, lon };
-      },
-      (err) => {
-        console.warn("Location error", err);
-        locationText = "Denied or unavailable";
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        locationText = "Geolocation not supported";
         dom.gpsLocation.innerText = locationText;
         currentResults.location = null;
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+        resolve(false);
+        return;
+      }
+      dom.gpsLocation.innerText = "Requesting...";
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
+          locationText = `${lat}, ${lon}`;
+          dom.gpsLocation.innerText = locationText;
+          currentResults.location = { lat, lon };
+          resolve(true);
+        },
+        (err) => {
+          console.warn("Location error", err);
+          locationText = "Denied or unavailable";
+          dom.gpsLocation.innerText = locationText;
+          currentResults.location = null;
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
   }
 
   // Compute score
@@ -389,7 +378,7 @@
     dom.osInfo.innerText = currentResults.os;
     dom.ipInfo.innerText = currentResults.ip;
     dom.ispInfo.innerText = currentResults.isp;
-    detectConnectionMedium(); // refresh every time (in case connection changes)
+    detectConnectionMedium(); // refresh every time
   }
 
   function setStatus(type, text) {
@@ -462,13 +451,19 @@
     dom.uploadCard.classList.remove('active-phase');
   }
 
-  // Speed test core
+  // Speed test core (with automatic location request at start)
   async function runSpeedTest() {
     if (isTesting) return;
     isTesting = true;
     dom.startBtn.disabled = true;
     resetPhases();
-    setStatus('testing', 'Starting test...');
+    setStatus('testing', 'Requesting location permission...');
+    
+    // Request location (if not already obtained)
+    await requestLocation();
+    
+    // Now proceed with the actual speed test
+    setStatus('testing', 'Starting network analysis...');
     currentResults.ping = 0; currentResults.jitter = 0;
     currentResults.download = 0; currentResults.upload = 0;
     currentResults.score = 0;
@@ -567,7 +562,7 @@
     }
   }
 
-  // PDF export (includes location & correct connection medium)
+  // PDF export (includes location)
   async function exportPDF() {
     if (isTesting) { alert("Test in progress, please wait."); return; }
     const btn = dom.pdfBtn;
@@ -639,7 +634,6 @@
   init();
   dom.startBtn.addEventListener('click', runSpeedTest);
   dom.pdfBtn.addEventListener('click', exportPDF);
-  dom.getLocationBtn.addEventListener('click', requestLocation);
 </script>
 </body>
 </html>
