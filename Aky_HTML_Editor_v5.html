@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aky HTML Editor v5.0</title>
+  <link rel="icon" type="image/jpeg" href="https://i.ibb.co/C5HVJ2nV/Akhyar-Cuckold.jpg">
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --panel: #252526;
+      --border: #3c3c3c;
+      --text: #d4d4d4;
+      --accent: #007acc;
+      --accent-hover: #005a9e;
+      --highlight: #264f78;
+      --match-bg: #f1c40f;
+      --match-color: #000;
+      --line-num-bg: #1e1e1e;
+      --line-num-text: #858585;
+      --tag-highlight: rgba(0, 122, 204, 0.3);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; height: 100vh; display: flex; flex-direction: column;
+      background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+    header {
+      background: var(--panel); padding: 8px 12px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .app-logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 18px; color: white;
+      margin-right: 8px;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+    }
+    .app-title { font-weight: 700; color: var(--accent); margin-right: 8px; font-size: 15px; white-space: nowrap; }
+    .file-name {
+      flex: 1; min-width: 180px; font-style: italic; opacity: 0.85; font-size: 13px;
+      background: var(--bg); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .toolbar { display: flex; align-items: center; gap: 6px; }
+    .divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+    button, input {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      padding: 5px 8px; cursor: pointer; border-radius: 4px; font-size: 12px; outline: none;
+      transition: all 0.2s;
+    }
+    button:hover { background: var(--border); }
+    button:active, button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    input[type="text"] { width: 140px; font-family: monospace; }
+    .find-options { display: flex; gap: 8px; align-items: center; font-size: 11px; }
+    .find-options label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .find-options input[type="checkbox"] { cursor: pointer; }
+    .find-status { font-size: 11px; min-width: 45px; text-align: center; color: #888; }
+    .main-container { flex: 1; display: flex; position: relative; overflow: hidden; }
+    .pane {
+      flex: 1; display: flex; flex-direction: column; min-width: 0;
+      border-right: 1px solid var(--border);
+    }
+    .pane:last-child { border-right: none; }
+    .pane-header {
+      background: var(--panel); padding: 6px 10px; font-size: 12px; font-weight: 600;
+      border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;
+    }
+    .editor-wrapper {
+      flex: 1; display: flex; position: relative; overflow: hidden;
+      background: var(--bg);
+    }
+    .line-numbers {
+      width: 50px; background: var(--line-num-bg); color: var(--line-num-text);
+      padding: 12px 8px; font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 14px; line-height: 1.6; text-align: right;
+      border-right: 1px solid var(--border); user-select: none; overflow: hidden;
+    }
+    .editor-container {
+      flex: 1; position: relative; overflow: auto;
+    }
+    #codeEditor {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: transparent; color: transparent; caret-color: var(--text);
+      border: none; padding: 12px; font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 14px; line-height: 1.6; resize: none; outline: none;
+      tab-size: 2; white-space: pre; overflow: auto; z-index: 2;
+    }
+    #highlightLayer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      padding: 12px; font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 14px; line-height: 1.6; pointer-events: none;
+      white-space: pre; overflow: auto; z-index: 1;
+    }
+    .tag-match { background: var(--tag-highlight); border: 1px solid var(--accent); }
+    .search-match { background: var(--match-bg); color: var(--match-color); }
+    #codeEditor::selection { background: var(--highlight); color: #fff; }
+    #livePreview { flex: 1; border: none; background: #ffffff; }
+    .drop-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; font-size: 18px; color: #fff; pointer-events: none;
+      opacity: 0; transition: opacity 0.2s; z-index: 10; backdrop-filter: blur(2px);
+    }
+    .drop-overlay.visible { opacity: 1; }
+    .drop-overlay span { font-size: 13px; opacity: 0.8; margin-top: 6px; }
+    input[type="file"] { display: none; }
+    .inspect-cursor { cursor: crosshair !important; }
+    
+    /* Syntax Highlighting Colors */
+    .hl-tag { color: #569cd6; }
+    .hl-attr { color: #9cdcfe; }
+    .hl-string { color: #ce9178; }
+    .hl-comment { color: #6a9955; }
+    .hl-doctype { color: #569cd6; }
+    .hl-text { color: #d4d4d4; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="app-logo">&lt;/&gt;</div>
+    <span class="app-title">Aky HTML Editor v5.0</span>
+    <div class="file-name" id="fileNameDisplay">No HTML file loaded into the application</div>
+    <div class="toolbar">
+      <button id="btnUpload">Upload</button>
+      <button id="btnSave">Save File</button>
+      <div class="divider"></div>
+      <input type="text" id="findInput" placeholder="Find...">
+      <button id="btnFind">Find</button>
+      <span class="find-status" id="findStatus">0 / 0</span>
+      <button id="btnPrev" title="Previous (▲)">▲</button>
+      <button id="btnNext" title="Next (▼)">▼</button>
+      <div class="divider"></div>
+      <div class="find-options">
+        <label><input type="checkbox" id="chkWholeWord"> Whole word</label>
+        <label><input type="checkbox" id="chkCaseSensitive"> Match case</label>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button id="btnLive" class="active">Live View</button>
+      <button id="btnInspect">Inspect: OFF</button>
+    </div>
+    <input type="file" id="fileInput" accept=".html,.htm,.txt">
+  </header>
+
+  <div class="main-container" id="mainContainer">
+    <div class="pane">
+      <div class="pane-header">Code Editor</div>
+      <div class="editor-wrapper">
+        <div class="line-numbers" id="lineNumbers">1</div>
+        <div class="editor-container">
+          <textarea id="codeEditor" spellcheck="false" placeholder="<!-- Drop HTML file here or start typing -->"></textarea>
+          <div id="highlightLayer"></div>
+        </div>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="pane-header">Live Preview</div>
+      <iframe id="livePreview" sandbox="allow-same-origin allow-scripts" srcdoc="<html><body style='margin:0;padding:20px;font-family:sans-serif;color:#333;'>Preview will appear here...</body></html>"></iframe>
+    </div>
+    <div class="drop-overlay" id="dropOverlay">
+      📄 Drop HTML File Here
+      <span>Release to override current code</span>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let currentFileName = '';
+    let matches = [];
+    let currentMatchIndex = -1;
+    let inspectMode = false;
+    let previewTimeout = null;
+    let tagMatchMarkers = [];
+
+    // Elements
+    const els = {
+      fileName: document.getElementById('fileNameDisplay'),
+      fileInput: document.getElementById('fileInput'),
+      btnUpload: document.getElementById('btnUpload'),
+      btnSave: document.getElementById('btnSave'),
+      findInput: document.getElementById('findInput'),
+      btnFind: document.getElementById('btnFind'),
+      findStatus: document.getElementById('findStatus'),
+      btnNext: document.getElementById('btnNext'),
+      btnPrev: document.getElementById('btnPrev'),
+      chkWholeWord: document.getElementById('chkWholeWord'),
+      chkCaseSensitive: document.getElementById('chkCaseSensitive'),
+      btnLive: document.getElementById('btnLive'),
+      btnInspect: document.getElementById('btnInspect'),
+      codeEditor: document.getElementById('codeEditor'),
+      highlightLayer: document.getElementById('highlightLayer'),
+      lineNumbers: document.getElementById('lineNumbers'),
+      livePreview: document.getElementById('livePreview'),
+      mainContainer: document.getElementById('mainContainer'),
+      dropOverlay: document.getElementById('dropOverlay')
+    };
+
+    // --- Core Functions ---
+
+    function updateFileName(name) {
+      currentFileName = name || '';
+      els.fileName.textContent = currentFileName || 'No HTML file loaded into the application';
+    }
+
+    function loadFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        els.codeEditor.value = e.target.result;
+        updateFileName(file.name);
+        updateLineNumbers();
+        updateHighlighting();
+        updatePreview();
+      };
+      reader.readAsText(file);
+    }
+
+    function updatePreview() {
+      els.livePreview.srcdoc = els.codeEditor.value || '<html><body style="padding:20px;font-family:sans-serif;color:#888;">Empty document</body></html>';
+      if (inspectMode) attachInspectListeners();
+    }
+
+    // --- Line Numbers ---
+    function updateLineNumbers() {
+      const lines = els.codeEditor.value.split('\n').length;
+      els.lineNumbers.innerHTML = Array(lines).fill(0).map((_, i) => i + 1).join('<br>');
+    }
+
+    // --- Syntax Highlighting ---
+    function highlightSyntax(text) {
+      let html = text;
+      
+      // Escape HTML
+      html = html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      
+      // Highlight comments
+      html = html.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="hl-comment">$1</span>');
+      
+      // Highlight doctype
+      html = html.replace(/(&lt;!DOCTYPE[\s\S]*?&gt;)/gi, '<span class="hl-doctype">$1</span>');
+      
+      // Highlight tags with attributes
+      html = html.replace(/(&lt;\/?)(\w+)([\s\S]*?)(\/?&gt;)/g, (match, p1, p2, p3, p4) => {
+        let attrs = p3.replace(/(\w+)=(".*?"|'.*?')/g, '<span class="hl-attr">$1</span>=<span class="hl-string">$2</span>');
+        return `<span class="hl-tag">${p1}${p2}</span>${attrs}<span class="hl-tag">${p4}</span>`;
+      });
+      
+      return html;
+    }
+
+    function updateHighlighting() {
+      els.highlightLayer.innerHTML = highlightSyntax(els.codeEditor.value);
+      els.highlightLayer.scrollTop = els.codeEditor.scrollTop;
+      els.highlightLayer.scrollLeft = els.codeEditor.scrollLeft;
+    }
+
+    // --- Tag Matching ---
+    function findMatchingTag(position) {
+      const text = els.codeEditor.value;
+      const beforeCursor = text.substring(0, position);
+      const afterCursor = text.substring(position);
+      
+      // Check if cursor is inside a tag
+      const tagStart = beforeCursor.lastIndexOf('<');
+      const tagEnd = afterCursor.indexOf('>');
+      
+      if (tagStart === -1 || tagEnd === -1) return null;
+      
+      const fullTag = text.substring(tagStart, tagStart + tagEnd + 1);
+      const isClosing = fullTag.startsWith('</');
+      const tagNameMatch = fullTag.match(/<\/?(\w+)/);
+      
+      if (!tagNameMatch) return null;
+      
+      const tagName = tagNameMatch[1].toLowerCase();
+      let depth = 0;
+      let searchPos = isClosing ? tagStart : (tagStart + tagEnd + 1);
+      let matchPos = -1;
+      
+      if (isClosing) {
+        // Search backwards for opening tag
+        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?>`, 'gi');
+        const before = text.substring(0, tagStart);
+        const matches = [...before.matchAll(regex)];
+        
+        for (let i = matches.length - 1; i >= 0; i--) {
+          const match = matches[i];
+          if (match[0].startsWith('</')) {
+            depth++;
+          } else {
+            if (depth === 0) {
+              matchPos = match.index;
+              break;
+            }
+            depth--;
+          }
+        }
+      } else {
+        // Search forwards for closing tag
+        if (fullTag.includes('/>')) return null; // Self-closing tag
+        
+        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?>`, 'gi');
+        const after = text.substring(searchPos);
+        const matches = [...after.matchAll(regex)];
+        
+        for (const match of matches) {
+          if (match[0].startsWith('</')) {
+            if (depth === 0) {
+              matchPos = searchPos + match.index;
+              break;
+            }
+            depth--;
+          } else {
+            depth++;
+          }
+        }
+      }
+      
+      return matchPos !== -1 ? { start: isClosing ? matchPos : tagStart, end: isClosing ? tagStart : matchPos, tagStart: isClosing ? matchPos : tagStart, tagEnd: isClosing ? tagStart + fullTag.length : matchPos + match[0].length } : null;
+    }
+
+    function highlightTagMatches(start, end) {
+      // Clear previous highlights
+      tagMatchMarkers.forEach(m => m.remove());
+      tagMatchMarkers = [];
+      
+      if (start === null || end === null) return;
+      
+      // Create highlight elements (simplified - just store positions)
+      els.codeEditor.dataset.matchStart = start;
+      els.codeEditor.dataset.matchEnd = end;
+      updateHighlighting();
+    }
+
+    // --- Find Feature ---
+    function resetFind() {
+      matches = [];
+      currentMatchIndex = -1;
+      els.findStatus.textContent = '0 / 0';
+      updateHighlighting();
+    }
+
+    function performFind() {
+      const query = els.findInput.value;
+      const text = els.codeEditor.value;
+      if (!query) { resetFind(); return; }
+
+      const wholeWord = els.chkWholeWord.checked;
+      const caseSensitive = els.chkCaseSensitive.checked;
+      const flags = caseSensitive ? 'g' : 'gi';
+      
+      let escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      if (wholeWord) {
+        escaped = '\\b' + escaped + '\\b';
+      }
+      
+      const regex = new RegExp(escaped, flags);
+      matches = [...text.matchAll(regex)].map(m => ({ start: m.index, length: m[0].length }));
+      currentMatchIndex = matches.length > 0 ? 0 : -1;
+      els.findStatus.textContent = `${matches.length > 0 ? currentMatchIndex + 1 : 0} / ${matches.length}`;
+      
+      if (currentMatchIndex >= 0) highlightCurrentMatch();
+    }
+
+    function navigateFind(direction) {
+      if (matches.length === 0) return;
+      
+      // direction: 1 = next (down), -1 = previous (up)
+      currentMatchIndex += direction;
+      
+      if (currentMatchIndex >= matches.length) currentMatchIndex = 0;
+      if (currentMatchIndex < 0) currentMatchIndex = matches.length - 1;
+      
+      els.findStatus.textContent = `${currentMatchIndex + 1} / ${matches.length}`;
+      highlightCurrentMatch();
+    }
+
+    function highlightCurrentMatch() {
+      const match = matches[currentMatchIndex];
+      els.codeEditor.focus();
+      els.codeEditor.selectionStart = match.start;
+      els.codeEditor.selectionEnd = match.start + match.length;
+      
+      // Scroll to selection
+      const lineHeight = 22.4; // 14px * 1.6
+      const lineIndex = els.codeEditor.value.substring(0, match.start).split('\n').length - 1;
+      els.codeEditor.scrollTop = Math.max(0, (lineIndex - 3) * lineHeight);
+      
+      updateHighlighting();
+    }
+
+    // --- Save Feature ---
+    function saveFile() {
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      
+      let h = now.getHours();
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const hh = String(h).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      
+      const timestamp = `${yyyy}-${mm}-${dd}_${hh}-${min}_${ampm}`;
+      const baseName = currentFileName.replace(/\.[^/.]+$/, '') || 'HTML File';
+      const finalName = `${baseName}_${timestamp}.html`;
+      
+      const blob = new Blob([els.codeEditor.value], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = finalName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // --- Inspect Feature ---
+    function toggleInspect() {
+      inspectMode = !inspectMode;
+      els.btnInspect.textContent = inspectMode ? 'Inspect: ON' : 'Inspect: OFF';
+      els.btnInspect.classList.toggle('active', inspectMode);
+      els.livePreview.classList.toggle('inspect-cursor', inspectMode);
+      
+      if (inspectMode) attachInspectListeners();
+      else removeInspectListeners();
+    }
+
+    function attachInspectListeners() {
+      const doc = els.livePreview.contentDocument;
+      if (!doc) return;
+      
+      doc.body.style.cursor = 'crosshair';
+      doc.addEventListener('click', handleInspectClick, true);
+    }
+
+    function removeInspectListeners() {
+      try {
+        const doc = els.livePreview.contentDocument;
+        doc.body.style.cursor = '';
+        doc.removeEventListener('click', handleInspectClick, true);
+      } catch(e) {}
+    }
+
+    function handleInspectClick(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      let el = e.target;
+      let searchStr = el.outerHTML;
+      let idx = els.codeEditor.value.indexOf(searchStr);
+      
+      if (idx === -1) {
+        const normSearch = searchStr.replace(/\s+/g, ' ').trim();
+        const normEditor = els.codeEditor.value.replace(/\s+/g, ' ');
+        const normIdx = normEditor.indexOf(normSearch);
+        if (normIdx !== -1) {
+          idx = els.codeEditor.value.substring(0, normIdx).replace(/\s+/g, ' ').length;
+        }
+      }
+      
+      if (idx === -1 && el.id) {
+        const attrSearch = `id="${el.id}"`;
+        idx = els.codeEditor.value.indexOf(attrSearch);
+      }
+
+      if (idx !== -1) {
+        els.codeEditor.focus();
+        const matchLen = searchStr.length > 0 ? searchStr.length : 50;
+        els.codeEditor.selectionStart = idx;
+        els.codeEditor.selectionEnd = idx + matchLen;
+        
+        const lines = els.codeEditor.value.substring(0, idx).split('\n').length;
+        els.codeEditor.scrollTop = (lines - 5) * 22.4;
+      }
+    }
+
+    // --- Event Listeners ---
+    els.btnUpload.addEventListener('click', () => els.fileInput.click());
+    els.fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadFile(e.target.files[0]);
+    });
+
+    els.btnSave.addEventListener('click', saveFile);
+
+    els.findInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') performFind();
+    });
+    els.btnFind.addEventListener('click', performFind);
+    els.btnPrev.addEventListener('click', () => navigateFind(-1)); // ▲ Previous (up)
+    els.btnNext.addEventListener('click', () => navigateFind(1));  // ▼ Next (down)
+    els.chkWholeWord.addEventListener('change', performFind);
+    els.chkCaseSensitive.addEventListener('change', performFind);
+
+    els.btnLive.addEventListener('click', () => els.btnLive.classList.toggle('active'));
+    els.btnInspect.addEventListener('click', toggleInspect);
+
+    // Editor events
+    els.codeEditor.addEventListener('input', () => {
+      updateLineNumbers();
+      updateHighlighting();
+      resetFind();
+      clearTimeout(previewTimeout);
+      previewTimeout = setTimeout(updatePreview, 300);
+    });
+
+    els.codeEditor.addEventListener('scroll', () => {
+      els.lineNumbers.scrollTop = els.codeEditor.scrollTop;
+      els.highlightLayer.scrollTop = els.codeEditor.scrollTop;
+      els.highlightLayer.scrollLeft = els.codeEditor.scrollLeft;
+    });
+
+    els.codeEditor.addEventListener('click', () => {
+      const match = findMatchingTag(els.codeEditor.selectionStart);
+      if (match) {
+        highlightTagMatches(match.start, match.end);
+      }
+    });
+
+    els.codeEditor.addEventListener('keyup', () => {
+      const match = findMatchingTag(els.codeEditor.selectionStart);
+      if (match) {
+        highlightTagMatches(match.start, match.end);
+      }
+    });
+
+    // Drag & Drop
+    let dragCounter = 0;
+    els.mainContainer.addEventListener('dragenter', (e) => {
+      e.preventDefault(); dragCounter++;
+      els.dropOverlay.classList.add('visible');
+    });
+    els.mainContainer.addEventListener('dragleave', (e) => {
+      e.preventDefault(); dragCounter--;
+      if (dragCounter === 0) els.dropOverlay.classList.remove('visible');
+    });
+    els.mainContainer.addEventListener('dragover', (e) => e.preventDefault());
+    els.mainContainer.addEventListener('drop', (e) => {
+      e.preventDefault(); dragCounter = 0;
+      els.dropOverlay.classList.remove('visible');
+      if (e.dataTransfer.files.length) {
+        loadFile(e.dataTransfer.files[0]);
+      }
+    });
+
+    // Init
+    updateFileName('');
+    updateLineNumbers();
+  </script>
+</body>
+</html>
