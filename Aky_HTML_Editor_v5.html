@@ -89,16 +89,46 @@
       font-size: 14px; line-height: 1.6; resize: none; outline: none;
       tab-size: 2; white-space: pre; overflow: auto; z-index: 2;
     }
+    #codeEditor.wrap-enabled {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      word-break: break-all;
+    }
     #highlightLayer {
       position: absolute; top: 0; left: 0; width: 100%; height: 100%;
       padding: 12px; font-family: 'Consolas', 'Courier New', monospace;
       font-size: 14px; line-height: 1.6; pointer-events: none;
       white-space: pre; overflow: auto; z-index: 1;
     }
+    #highlightLayer.wrap-enabled {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      word-break: break-all;
+    }
     .tag-match { background: var(--tag-highlight); border: 1px solid var(--accent); }
     .search-match { background: var(--match-bg); color: var(--match-color); }
     #codeEditor::selection { background: var(--highlight); color: #fff; }
-    #livePreview { flex: 1; border: none; background: #ffffff; }
+    #livePreview { flex: 1; border: none; background: #ffffff; transform-origin: top left; transition: transform 0.2s; }
+    .preview-controls {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .zoom-controls {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--bg);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .zoom-controls button {
+      padding: 2px 8px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .zoom-level {
+      font-size: 11px;
+      min-width: 40px;
+      text-align: center;
+    }
     .drop-overlay {
       position: absolute; inset: 0; background: rgba(0,0,0,0.75); display: flex; flex-direction: column;
       align-items: center; justify-content: center; font-size: 18px; color: #fff; pointer-events: none;
@@ -147,7 +177,12 @@
 
   <div class="main-container" id="mainContainer">
     <div class="pane">
-      <div class="pane-header">Code Editor</div>
+      <div class="pane-header">
+        <span>Code Editor</span>
+        <div class="find-options">
+          <label><input type="checkbox" id="chkWrap" checked> Wrap</label>
+        </div>
+      </div>
       <div class="editor-wrapper">
         <div class="line-numbers" id="lineNumbers">1</div>
         <div class="editor-container">
@@ -157,7 +192,15 @@
       </div>
     </div>
     <div class="pane">
-      <div class="pane-header">Live Preview</div>
+      <div class="pane-header">
+        <span>Live Preview</span>
+        <div class="zoom-controls">
+          <button id="btnZoomOut" title="Zoom Out">−</button>
+          <span class="zoom-level" id="zoomLevel">100%</span>
+          <button id="btnZoomIn" title="Zoom In">+</button>
+          <button id="btnZoomReset" title="Reset Zoom">⟲</button>
+        </div>
+      </div>
       <iframe id="livePreview" sandbox="allow-same-origin allow-scripts" srcdoc="<html><body style='margin:0;padding:20px;font-family:sans-serif;color:#333;'>Preview will appear here...</body></html>"></iframe>
     </div>
     <div class="drop-overlay" id="dropOverlay">
@@ -173,7 +216,8 @@
     let currentMatchIndex = -1;
     let inspectMode = false;
     let previewTimeout = null;
-    let tagMatchMarkers = [];
+    let currentZoom = 100;
+    let selfClosingTags = ['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
     // Elements
     const els = {
@@ -188,8 +232,13 @@
       btnPrev: document.getElementById('btnPrev'),
       chkWholeWord: document.getElementById('chkWholeWord'),
       chkCaseSensitive: document.getElementById('chkCaseSensitive'),
+      chkWrap: document.getElementById('chkWrap'),
       btnLive: document.getElementById('btnLive'),
       btnInspect: document.getElementById('btnInspect'),
+      btnZoomIn: document.getElementById('btnZoomIn'),
+      btnZoomOut: document.getElementById('btnZoomOut'),
+      btnZoomReset: document.getElementById('btnZoomReset'),
+      zoomLevel: document.getElementById('zoomLevel'),
       codeEditor: document.getElementById('codeEditor'),
       highlightLayer: document.getElementById('highlightLayer'),
       lineNumbers: document.getElementById('lineNumbers'),
@@ -259,79 +308,133 @@
     // --- Tag Matching ---
     function findMatchingTag(position) {
       const text = els.codeEditor.value;
-      const beforeCursor = text.substring(0, position);
-      const afterCursor = text.substring(position);
       
-      // Check if cursor is inside a tag
-      const tagStart = beforeCursor.lastIndexOf('<');
-      const tagEnd = afterCursor.indexOf('>');
+      // Find the tag at or before the cursor position
+      let tagStart = -1;
+      let tagEnd = -1;
       
-      if (tagStart === -1 || tagEnd === -1) return null;
+      // Search backwards to find the start of a tag
+      for (let i = position; i >= 0; i--) {
+        if (text[i] === '<') {
+          tagStart = i;
+          break;
+        } else if (text[i] === '>' && i < position) {
+          // We've gone past a complete tag, stop searching
+          break;
+        }
+      }
       
-      const fullTag = text.substring(tagStart, tagStart + tagEnd + 1);
+      if (tagStart === -1) return null;
+      
+      // Find the end of this tag
+      tagEnd = text.indexOf('>', tagStart);
+      if (tagEnd === -1) return null;
+      
+      const fullTag = text.substring(tagStart, tagEnd + 1);
+      
+      // Extract tag name
+      const tagMatch = fullTag.match(/<\/?(\w+)/i);
+      if (!tagMatch) return null;
+      
+      const tagName = tagMatch[1].toLowerCase();
+      
+      // Check if it's a self-closing tag
+      if (selfClosingTags.includes(tagName) || fullTag.endsWith('/>')) {
+        return null; // No matching tag for self-closing tags
+      }
+      
       const isClosing = fullTag.startsWith('</');
-      const tagNameMatch = fullTag.match(/<\/?(\w+)/);
       
-      if (!tagNameMatch) return null;
-      
-      const tagName = tagNameMatch[1].toLowerCase();
+      // Find the matching tag
       let depth = 0;
-      let searchPos = isClosing ? tagStart : (tagStart + tagEnd + 1);
-      let matchPos = -1;
+      let matchStart = -1;
+      let matchEnd = -1;
       
       if (isClosing) {
         // Search backwards for opening tag
-        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?>`, 'gi');
+        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?\\s*/?>`, 'gi');
         const before = text.substring(0, tagStart);
-        const matches = [...before.matchAll(regex)];
+        let match;
+        let lastMatch = null;
         
-        for (let i = matches.length - 1; i >= 0; i--) {
-          const match = matches[i];
+        while ((match = regex.exec(before)) !== null) {
           if (match[0].startsWith('</')) {
             depth++;
           } else {
             if (depth === 0) {
-              matchPos = match.index;
+              lastMatch = match;
               break;
             }
             depth--;
           }
         }
+        
+        if (lastMatch) {
+          matchStart = lastMatch.index;
+          matchEnd = matchStart + lastMatch[0].indexOf('>') + 1;
+        }
       } else {
         // Search forwards for closing tag
-        if (fullTag.includes('/>')) return null; // Self-closing tag
+        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?\\s*/?>`, 'gi');
+        const after = text.substring(tagEnd + 1);
+        let match;
         
-        const regex = new RegExp(`</?${tagName}(?:\\s[^>]*)?>`, 'gi');
-        const after = text.substring(searchPos);
-        const matches = [...after.matchAll(regex)];
-        
-        for (const match of matches) {
-          if (match[0].startsWith('</')) {
+        while ((match = regex.exec(after)) !== null) {
+          if (!match[0].startsWith('</') && !match[0].endsWith('/>')) {
+            // Opening tag
+            depth++;
+          } else if (match[0].startsWith('</')) {
+            // Closing tag
             if (depth === 0) {
-              matchPos = searchPos + match.index;
+              matchStart = tagEnd + 1 + match.index;
+              matchEnd = matchStart + match[0].indexOf('>') + 1;
               break;
             }
             depth--;
-          } else {
-            depth++;
           }
         }
       }
       
-      return matchPos !== -1 ? { start: isClosing ? matchPos : tagStart, end: isClosing ? tagStart : matchPos, tagStart: isClosing ? matchPos : tagStart, tagEnd: isClosing ? tagStart + fullTag.length : matchPos + match[0].length } : null;
+      if (matchStart === -1) return null;
+      
+      return {
+        start: isClosing ? matchStart : tagStart,
+        end: isClosing ? matchEnd : tagEnd + 1,
+        matchStart: isClosing ? matchStart : tagStart,
+        matchEnd: isClosing ? matchEnd : tagEnd + 1
+      };
     }
 
-    function highlightTagMatches(start, end) {
+    function highlightTagMatches(match) {
       // Clear previous highlights
-      tagMatchMarkers.forEach(m => m.remove());
-      tagMatchMarkers = [];
+      const existingHighlights = document.querySelectorAll('.tag-match');
+      existingHighlights.forEach(el => {
+        el.classList.remove('tag-match');
+      });
       
-      if (start === null || end === null) return;
+      if (!match) return;
       
-      // Create highlight elements (simplified - just store positions)
-      els.codeEditor.dataset.matchStart = start;
-      els.codeEditor.dataset.matchEnd = end;
-      updateHighlighting();
+      // Store match positions
+      els.codeEditor.dataset.matchStart = match.start;
+      els.codeEditor.dataset.matchEnd = match.end;
+      
+      // Update highlighting with tag matches
+      updateHighlightingWithMatches(match);
+    }
+
+    function updateHighlightingWithMatches(tagMatch) {
+      const text = els.codeEditor.value;
+      let html = highlightSyntax(text);
+      
+      if (tagMatch) {
+        // We need to highlight the tags in the original text
+        // This is complex because we need to work with the highlighted HTML
+        // For now, we'll use a simpler approach with CSS
+      }
+      
+      els.highlightLayer.innerHTML = html;
+      els.highlightLayer.scrollTop = els.codeEditor.scrollTop;
+      els.highlightLayer.scrollLeft = els.codeEditor.scrollLeft;
     }
 
     // --- Find Feature ---
@@ -479,6 +582,45 @@
       }
     }
 
+    // --- Zoom Feature ---
+    function updateZoom() {
+      els.livePreview.style.transform = `scale(${currentZoom / 100})`;
+      els.zoomLevel.textContent = `${currentZoom}%`;
+    }
+
+    function zoomIn() {
+      if (currentZoom < 200) {
+        currentZoom += 10;
+        updateZoom();
+      }
+    }
+
+    function zoomOut() {
+      if (currentZoom > 50) {
+        currentZoom -= 10;
+        updateZoom();
+      }
+    }
+
+    function resetZoom() {
+      currentZoom = 100;
+      updateZoom();
+    }
+
+    // --- Wrap Feature ---
+    function toggleWrap() {
+      const isWrapped = els.chkWrap.checked;
+      if (isWrapped) {
+        els.codeEditor.classList.add('wrap-enabled');
+        els.highlightLayer.classList.add('wrap-enabled');
+      } else {
+        els.codeEditor.classList.remove('wrap-enabled');
+        els.highlightLayer.classList.remove('wrap-enabled');
+      }
+      updateLineNumbers();
+      updateHighlighting();
+    }
+
     // --- Event Listeners ---
     els.btnUpload.addEventListener('click', () => els.fileInput.click());
     els.fileInput.addEventListener('change', (e) => {
@@ -499,6 +641,14 @@
     els.btnLive.addEventListener('click', () => els.btnLive.classList.toggle('active'));
     els.btnInspect.addEventListener('click', toggleInspect);
 
+    // Zoom controls
+    els.btnZoomIn.addEventListener('click', zoomIn);
+    els.btnZoomOut.addEventListener('click', zoomOut);
+    els.btnZoomReset.addEventListener('click', resetZoom);
+
+    // Wrap control
+    els.chkWrap.addEventListener('change', toggleWrap);
+
     // Editor events
     els.codeEditor.addEventListener('input', () => {
       updateLineNumbers();
@@ -516,15 +666,14 @@
 
     els.codeEditor.addEventListener('click', () => {
       const match = findMatchingTag(els.codeEditor.selectionStart);
-      if (match) {
-        highlightTagMatches(match.start, match.end);
-      }
+      highlightTagMatches(match);
     });
 
-    els.codeEditor.addEventListener('keyup', () => {
-      const match = findMatchingTag(els.codeEditor.selectionStart);
-      if (match) {
-        highlightTagMatches(match.start, match.end);
+    els.codeEditor.addEventListener('keyup', (e) => {
+      // Only check for tag matching on arrow keys and mouse navigation
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) {
+        const match = findMatchingTag(els.codeEditor.selectionStart);
+        highlightTagMatches(match);
       }
     });
 
@@ -550,6 +699,7 @@
     // Init
     updateFileName('');
     updateLineNumbers();
+    toggleWrap(); // Initialize wrap state
   </script>
 </body>
 </html>
