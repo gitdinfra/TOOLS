@@ -205,7 +205,7 @@ function parseXML(xmlString) {
         });
     });
     
-    // Parse IPsec Configuration
+    // Parse IPsec Configuration - FIXED: Extract remote subnets properly
     const preSharedKeys = xmlDoc.querySelectorAll('OPNsense IPsec preSharedKeys > preSharedKey');
     preSharedKeys.forEach(psk => {
         config.ipsec.psk.push({
@@ -215,24 +215,40 @@ function parseXML(xmlString) {
         });
     });
     
+    // Parse IPsec tunnels with their remote subnets
     const connections = xmlDoc.querySelectorAll('OPNsense Swanctl Connections > Connection');
     connections.forEach(conn => {
         const uuid = conn.getAttribute('uuid');
-        const tunnels = xmlDoc.querySelectorAll(`OPNsense Swanctl children > child[connection="${uuid}"]`);
+        const description = getElementText(conn, 'description');
+        const remoteAddr = getElementText(conn, 'remote_addrs');
+        const remotePort = getElementText(conn, 'remote_port');
+        const proposals = getElementText(conn, 'proposals');
+        const enabled = getElementText(conn, 'enabled') === '1';
         
+        // Find all child tunnels for this connection and extract remote subnets
+        const children = xmlDoc.querySelectorAll(`OPNsense Swanctl children > child[connection="${uuid}"]`);
         const remoteSubnets = [];
-        tunnels.forEach(tunnel => {
-            const remoteTs = getElementText(tunnel, 'remote_ts');
-            if (remoteTs) remoteSubnets.push(remoteTs);
+        const localSubnets = [];
+        
+        children.forEach(child => {
+            const remoteTs = getElementText(child, 'remote_ts');
+            const localTs = getElementText(child, 'local_ts');
+            if (remoteTs && !remoteSubnets.includes(remoteTs)) {
+                remoteSubnets.push(remoteTs);
+            }
+            if (localTs && !localSubnets.includes(localTs)) {
+                localSubnets.push(localTs);
+            }
         });
         
         config.ipsec.tunnels.push({
-            description: getElementText(conn, 'description'),
-            remote_addr: getElementText(conn, 'remote_addrs'),
-            remote_port: getElementText(conn, 'remote_port'),
-            proposals: getElementText(conn, 'proposals'),
-            enabled: getElementText(conn, 'enabled') === '1',
-            remoteSubnets: remoteSubnets
+            description: description || `Tunnel ${remoteAddr}`,
+            remote_addr: remoteAddr,
+            remote_port: remotePort,
+            proposals: proposals,
+            enabled: enabled,
+            remoteSubnets: remoteSubnets,
+            localSubnets: localSubnets
         });
     });
     
@@ -372,7 +388,7 @@ function createSystemInfoSection() {
                     <div class="info-value">${parsedConfig.system.webgui.protocol || 'https'}:${parsedConfig.system.webgui.port || '443'}</div>
                 </div>
             </div>
-            <h4 style="margin: 1.5rem 0 1rem 0; color: var(--solaris-black);">DNS Configuration</h4>
+            <h4 style="margin: 1.5rem 0 1rem 0; color: var(--text-primary);">DNS Configuration</h4>
             <table class="data-table">
                 <thead>
                     <tr>
@@ -555,8 +571,8 @@ function createIPsecSection() {
         <div class="section-title">IPsec VPN Tunnels (${parsedConfig.ipsec.tunnels.length} tunnels)</div>
         <div class="section-content">
             ${parsedConfig.ipsec.tunnels.map(tunnel => `
-                <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--gray-50); border-radius: 8px; border-left: 4px solid var(--solaris-orange);">
-                    <h4 style="margin-bottom: 1rem; color: var(--solaris-black);">${tunnel.description}</h4>
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px; border-left: 4px solid var(--solaris-orange);">
+                    <h4 style="margin-bottom: 1rem; color: var(--text-primary);">${tunnel.description}</h4>
                     <div class="info-grid">
                         <div class="info-item">
                             <div class="info-label">Remote Address</div>
@@ -572,9 +588,15 @@ function createIPsecSection() {
                         </div>
                     </div>
                     <div style="margin-top: 1rem;">
-                        <strong style="color: var(--gray-700);">Remote Subnets:</strong>
+                        <strong style="color: var(--text-secondary);">Local Subnets:</strong>
                         <div style="margin-top: 0.5rem;">
-                            ${tunnel.remoteSubnets.map(subnet => `<span class="badge badge-info" style="margin-right: 0.5rem; margin-bottom: 0.25rem;">${subnet}</span>`).join('')}
+                            ${tunnel.localSubnets && tunnel.localSubnets.length > 0 ? tunnel.localSubnets.map(subnet => `<span class="badge badge-info" style="margin-right: 0.5rem; margin-bottom: 0.25rem;">${subnet}</span>`).join('') : '<span style="color: var(--text-muted); margin-left: 0.5rem;">N/A</span>'}
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <strong style="color: var(--text-secondary);">Remote Subnets:</strong>
+                        <div style="margin-top: 0.5rem;">
+                            ${tunnel.remoteSubnets && tunnel.remoteSubnets.length > 0 ? tunnel.remoteSubnets.map(subnet => `<span class="badge badge-success" style="margin-right: 0.5rem; margin-bottom: 0.25rem;">${subnet}</span>`).join('') : '<span style="color: var(--text-muted); margin-left: 0.5rem;">N/A</span>'}
                         </div>
                     </div>
                 </div>
@@ -716,9 +738,214 @@ function nextPage() {
     }
 }
 
-function downloadPDF() {
-    alert('PDF download functionality requires additional library setup. Use Print to PDF instead.');
-    window.print();
+// FIXED: Proper PDF generation using jsPDF and html2canvas
+async function downloadPDF() {
+    try {
+        // Show loading state
+        const btn = document.querySelector('button[onclick="downloadPDF()"]');
+        const originalText = btn.textContent;
+        btn.textContent = 'Generating PDF...';
+        btn.disabled = true;
+        
+        // Load libraries dynamically if not already loaded
+        if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') {
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+            await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+        }
+        
+        const { jsPDF } = window.jspdf;
+        
+        // Create a new PDF document (A4 size)
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        // Get the report content
+        const reportHeader = document.querySelector('.report-header');
+        const reportContent = document.getElementById('reportContent');
+        const sections = document.querySelectorAll('.section');
+        
+        // Add header to first page
+        pdf.setFillColor(242, 101, 34); // Solaris orange
+        pdf.rect(0, 0, pageWidth, 15, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(16);
+        pdf.text('Firewall Infrastructure Upgrade Configuration Report', 10, 10);
+        
+        pdf.setFontSize(11);
+        pdf.text(`Site Name: ${siteName}`, 10, 20);
+        pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 26);
+        
+        let yPos = 35;
+        let pageNum = 1;
+        
+        // Process each section
+        for (let i = 0; i < sections.length; i++) {
+            const section = sections[i];
+            const sectionTitle = section.querySelector('.section-title').textContent;
+            const sectionContent = section.querySelector('.section-content');
+            
+            // Check if we need a new page
+            if (yPos > pageHeight - 40) {
+                pdf.addPage();
+                yPos = 20;
+                pageNum++;
+                
+                // Add header
+                pdf.setFillColor(242, 101, 34);
+                pdf.rect(0, 0, pageWidth, 10, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(10);
+                pdf.text(`Firewall Report - ${siteName}`, 10, 7);
+                
+                // Add footer with page number
+                pdf.setFontSize(9);
+                pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 7);
+                
+                yPos = 25;
+            }
+            
+            // Add section title
+            pdf.setFillColor(242, 101, 34);
+            pdf.rect(10, yPos - 5, pageWidth - 20, 8, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(12);
+            pdf.text(sectionTitle, 12, yPos);
+            
+            yPos += 12;
+            
+            // Convert section content to text and add to PDF
+            const tables = sectionContent.querySelectorAll('.data-table');
+            const infoItems = sectionContent.querySelectorAll('.info-item');
+            
+            // Process info grids
+            if (infoItems.length > 0) {
+                pdf.setFontSize(9);
+                pdf.setTextColor(50, 50, 50);
+                
+                infoItems.forEach((item, idx) => {
+                    const label = item.querySelector('.info-label')?.textContent || '';
+                    const value = item.querySelector('.info-value')?.textContent || '';
+                    
+                    if (yPos > pageHeight - 30) {
+                        pdf.addPage();
+                        yPos = 20;
+                        pageNum++;
+                        pdf.setFontSize(9);
+                        pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 7);
+                    }
+                    
+                    pdf.text(`${label}: ${value}`, 15, yPos);
+                    yPos += 6;
+                });
+                
+                yPos += 5;
+            }
+            
+            // Process tables
+            tables.forEach(table => {
+                const headers = [];
+                const rows = [];
+                
+                // Extract headers
+                const headerCells = table.querySelectorAll('thead th');
+                headerCells.forEach(cell => {
+                    headers.push(cell.textContent);
+                });
+                
+                // Extract rows
+                const bodyRows = table.querySelectorAll('tbody tr');
+                bodyRows.forEach(row => {
+                    const rowData = [];
+                    const cells = row.querySelectorAll('td');
+                    cells.forEach(cell => {
+                        // Get text content, removing badge text formatting
+                        const text = cell.textContent.replace(/\n/g, ' ').trim();
+                        rowData.push(text);
+                    });
+                    rows.push(rowData);
+                });
+                
+                // Add table to PDF
+                if (rows.length > 0) {
+                    // Check if we need a new page
+                    if (yPos + (rows.length * 6) + 20 > pageHeight) {
+                        pdf.addPage();
+                        yPos = 20;
+                        pageNum++;
+                        pdf.setFontSize(9);
+                        pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 7);
+                    }
+                    
+                    pdf.autoTable({
+                        head: [headers],
+                        body: rows,
+                        startY: yPos,
+                        margin: { left: 10, right: 10 },
+                        headStyles: { 
+                            fillColor: [30, 33, 40], 
+                            textColor: 255,
+                            fontSize: 8
+                        },
+                        bodyStyles: { 
+                            textColor: 50,
+                            fontSize: 8
+                        },
+                        alternateRowStyles: { 
+                            fillColor: [245, 245, 245]
+                        },
+                        didDrawPage: function(data) {
+                            // Add footer
+                            pdf.setFontSize(9);
+                            pdf.text(`Page ${pageNum}`, pageWidth - 20, pageHeight - 7);
+                        }
+                    });
+                    
+                    yPos = pdf.lastAutoTable.finalY + 10;
+                }
+            });
+            
+            yPos += 10;
+        }
+        
+        // Add final footer
+        const totalPages = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(9);
+            pdf.setTextColor(100);
+            pdf.text(`Page ${i} of ${totalPages}`, pageWidth - 30, pageHeight - 7);
+        }
+        
+        // Save the PDF
+        const filename = `Firewall_Report_${siteName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+        pdf.save(filename);
+        
+        // Restore button
+        btn.textContent = originalText;
+        btn.disabled = false;
+        
+    } catch (error) {
+        console.error('PDF generation error:', error);
+        alert('Error generating PDF: ' + error.message);
+        
+        // Restore button
+        const btn = document.querySelector('button[onclick="downloadPDF()"]');
+        btn.textContent = 'Download PDF';
+        btn.disabled = false;
+    }
+}
+
+// Helper function to load scripts
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
 }
 
 function resetApp() {
