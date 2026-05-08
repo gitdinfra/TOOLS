@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firewall Configuration Report Generator - Solaris Network</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Upload Section -->
+        <div id="uploadSection" class="upload-section">
+            <div class="logo-container">
+                <img src="https://www.solarisnetwork.com.my/assets/images/logo.png" alt="Solaris Network" class="logo">
+                <h1 class="company-name">SOLARIS NETWORK</h1>
+            </div>
+            
+            <div class="upload-container">
+                <h2>Firewall Infrastructure Upgrade Configuration Report</h2>
+                <p class="subtitle">Upload your firewall configuration file to generate a comprehensive report</p>
+                
+                <div id="dropZone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <h3>Drag & Drop your configuration file</h3>
+                        <p>or</p>
+                        <label class="file-input-label">
+                            <input type="file" id="fileInput" accept=".xml" hidden>
+                            <span class="btn btn-primary">Browse Files</span>
+                        </label>
+                        <p class="file-types">Supported format: XML (OPNsense/PfSense)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Site Name Input Section -->
+        <div id="siteNameSection" class="site-name-section" style="display: none;">
+            <div class="modal-overlay">
+                <div class="modal-content">
+                    <h2>Enter Site Information</h2>
+                    <div class="form-group">
+                        <label for="siteName">Site Full Name</label>
+                        <input type="text" id="siteName" placeholder="e.g., Cahaya Suria" required>
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" onclick="cancelUpload()">Cancel</button>
+                        <button class="btn btn-primary" onclick="generateReport()">Generate Report</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Section -->
+        <div id="reportSection" class="report-section" style="display: none;">
+            <div class="report-header">
+                <img src="https://www.solarisnetwork.com.my/assets/images/logo.png" alt="Solaris Network" class="report-logo">
+                <div class="report-title-section">
+                    <h1>Firewall Infrastructure Upgrade Configuration Report</h1>
+                    <div class="site-info">
+                        <strong>Site Name:</strong> <span id="reportSiteName"></span>
+                    </div>
+                    <div class="report-meta">
+                        <span>Generated: <span id="reportDate"></span></span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reportContent" class="report-content">
+                <!-- Dynamic content will be inserted here -->
+            </div>
+
+            <div class="report-footer">
+                <div class="pagination">
+                    <button class="btn btn-small" onclick="previousPage()" id="prevBtn">Previous</button>
+                    <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                    <button class="btn btn-small" onclick="nextPage()" id="nextBtn">Next</button>
+                </div>
+                <div class="report-actions">
+                    <button class="btn btn-primary" onclick="window.print()">Print Report</button>
+                    <button class="btn btn-secondary" onclick="downloadPDF()">Download PDF</button>
+                    <button class="btn btn-secondary" onclick="resetApp()">New Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
