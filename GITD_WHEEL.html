@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>GITD Wheel of Luck</title>
+    <script src="https://cdn.tailwindcss.com">
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+    <style>
+        /* ── reset & base ── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            background: #1a1a2e;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ── animated gradient background ── */
+        .bg-gradient-animated {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: linear-gradient(-45deg, #ff9a9e, #fecfef, #a1c4fd, #c2e9fb, #ffecd2, #fcb69f);
+            background-size: 400% 400%;
+            animation: gradShift 18s ease infinite;
+        }
+        @keyframes gradShift {
+            0% {
+                background-position: 0% 50%;
+            }
+            50% {
+                background-position: 100% 50%;
+            }
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* ── floating emojis ── */
+        .emoji-float {
+            position: absolute;
+            font-size: 2.5rem;
+            animation: floatUp ease-in-out forwards;
+            pointer-events: none;
+            user-select: none;
+            z-index: 1;
+        }
+        @keyframes floatUp {
+            0% {
+                transform: translateY(0) scale(0.3) rotate(0deg);
+                opacity: 0;
+            }
+            15% {
+                opacity: 1;
+                transform: translateY(-4vh) scale(1.2) rotate(6deg);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-20vh) scale(1) rotate(-4deg);
+            }
+            100% {
+                transform: translateY(-30vh) scale(0.4) rotate(0deg);
+                opacity: 0;
+            }
+        }
+
+        /* ── glass card ── */
+        .glass {
+            background: rgba(255, 255, 255, 0.78);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        /* ── wheel container – always a perfect square ── */
+        .wheel-container {
+            position: relative;
+            width: min(85vw, 70vh, 550px);
+            aspect-ratio: 1 / 1;
+            touch-action: none;
+            user-select: none;
+        }
+        #wheelCanvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            border-radius: 50%;
+            box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(255, 255, 255, 0.5);
+            background: #f0f0f0;
+            touch-action: none;
+            cursor: pointer;
+        }
+
+        /* ── pointer ── */
+        .pointer {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%) rotate(180deg);
+            z-index: 20;
+            width: 12%;
+            aspect-ratio: 1 / 1.6;
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+            transition: transform 0.06s ease-out;
+        }
+        .pointer svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+            fill: white;
+        }
+
+        /* ── center hub ── */
+        .hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12%;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fff, #c0c0c0);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3), inset 0 -4px 8px rgba(0, 0, 0, 0.15);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            z-index: 15;
+            pointer-events: none;
+        }
+        .hub::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32%;
+            aspect-ratio: 1 / 1;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 40%, #999, #555);
+            box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3);
+        }
+
+        /* ── page transitions ── */
+        .page {
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        .page-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+        }
+        .page-visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        /* ── modal ── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(6px);
+            transition: opacity 0.3s ease;
+        }
+        .modal-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-box {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 2.5rem;
+            padding: 2.5rem 2rem;
+            max-width: 90%;
+            width: 420px;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+            transform: scale(0.8);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .modal-overlay:not(.hidden) .modal-box {
+            transform: scale(1);
+        }
+
+        /* ── input with line numbers ── */
+        .input-area {
+            display: flex;
+            border-radius: 0.75rem;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.5);
+            overflow: hidden;
+            transition: background 0.2s, border-color 0.2s;
+            position: relative;
+        }
+        .input-area:focus-within {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.25);
+        }
+        .input-area.drag-over {
+            background: rgba(167, 139, 250, 0.2);
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.3);
+        }
+
+        .line-numbers {
+            padding: 12px 6px 12px 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            text-align: right;
+            user-select: none;
+            min-width: 32px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.02);
+            border-right: 1px solid rgba(0, 0, 0, 0.06);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            padding-top: 12px;
+            padding-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .input-textarea {
+            flex: 1;
+            padding: 12px 14px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.875rem;
+            line-height: 1.6;
+            border: none;
+            outline: none;
+            background: transparent;
+            resize: vertical;
+            min-height: 200px;
+            color: #1e293b;
+            transition: background 0.2s;
+            width: 100%;
+        }
+        .input-textarea::placeholder {
+            color: #94a3b8;
+            font-weight: 400;
+        }
+        .input-textarea::-webkit-scrollbar {
+            width: 6px;
+        }
+        .input-textarea::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .input-textarea::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+        .input-textarea::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* ── upload button ── */
+        .upload-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.25rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            background: rgba(255, 255, 255, 0.6);
+            border: 2px dashed rgba(124, 58, 237, 0.3);
+            color: #4b5563;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+        }
+        .upload-btn:hover {
+            background: rgba(167, 139, 250, 0.15);
+            border-color: #7c3aed;
+            color: #1e293b;
+        }
+        .upload-btn:active {
+            transform: scale(0.96);
+        }
+        .upload-btn svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+
+        /* ── file name badge ── */
+        .file-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            background: rgba(167, 139, 250, 0.15);
+            color: #5b21b6;
+            max-width: 200px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-badge .remove-file {
+            cursor: pointer;
+            font-weight: 700;
+            color: #94a3b8;
+            transition: color 0.2s;
+        }
+        .file-badge .remove-file:hover {
+            color: #ef4444;
+        }
+
+        /* ── utilities ── */
+        .shake {
+            animation: shake 0.5s ease;
+        }
+        @keyframes shake {
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+            20% {
+                transform: translateX(-10px);
+            }
+            40% {
+                transform: translateX(10px);
+            }
+            60% {
+                transform: translateX(-6px);
+            }
+            80% {
+                transform: translateX(6px);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .emoji-float {
+                font-size: 1.8rem;
+            }
+            .line-numbers {
+                font-size: 0.7rem;
+                padding: 10px 4px 10px 8px;
+                min-width: 26px;
+            }
+            .input-textarea {
+                font-size: 0.8rem;
+                padding: 10px 10px;
+                min-height: 160px;
+            }
+        }
+        @media (min-width: 1024px) {
+            .emoji-float {
+                font-size: 3.5rem;
+            }
+        }
+
+        /* ── scroll sync helper ── */
+        .line-numbers-scroll {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- animated background -->
+    <div class="bg-gradient-animated"></div>
+
+    <!-- floating emojis container -->
+    <div id="emojiContainer" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;"></div>
+
+    <!-- ============================================================ -->
+    <!-- PAGE 1 – INPUT                                               -->
+    <!-- ============================================================ -->
+    <div id="pageInput" class="page page-visible" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;">
+        <div class="glass rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
+
+            <h1 class="text-3xl font-extrabold text-center bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600 mb-1">
+                GITD Wheel of Luck!
+            </h1>
+            <p class="text-gray-600 text-center text-sm font-medium mb-5">
+                Enter names below (one per line).<br />Minimum 2 required.
+            </p>
+
+            <!-- Input with line numbers -->
+            <div class="input-area" id="inputArea">
+                <div class="line-numbers" id="lineNumbers">1</div>
+                <textarea id="namesInput" class="input-textarea"
+                placeholder="Please enter names here or you may upload CSV or text file."
+                spellcheck="false"></textarea>
+            </div>
+
+            <!-- Error notice -->
+            <div id="errorBox" class="hidden mt-3 bg-red-100 border border-red-400 text-red-700 px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm text-sm">
+                <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                <span class="font-semibold">Please enter at least 2 names.</span>
+            </div>
+
+            <!-- Upload row -->
+            <div class="flex flex-wrap items-center gap-3 mt-4">
+                <input type="file" id="fileInput" accept=".csv,.txt" style="display:none;" />
+                <button id="uploadBtn" class="upload-btn" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload CSV or TXT
+                </button>
+                <span id="fileBadge" class="file-badge hidden">
+                    <span id="fileName">file.csv</span>
+                    <span class="remove-file" id="removeFile">✕</span>
+                </span>
+                <span class="text-xs text-gray-400 ml-auto hidden sm:inline">or drag &amp; drop onto the field</span>
+            </div>
+
+            <!-- Execute button -->
+            <button id="executeBtn"
+            class="mt-5 w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:-translate-y-0.5 active:translate-y-0 text-lg">
+            Execute
+        </button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PAGE 2 – WHEEL                                               -->
+<!-- ============================================================ -->
+<div id="pageWheel" class="page page-hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;gap:1.5rem;">
+
+    <h2 class="text-3xl md:text-4xl font-extrabold text-white drop-shadow-md text-center">
+        Are you ready?
+    </h2>
+
+    <div class="wheel-container">
+        <!-- Pointer -->
+        <div class="pointer" id="pointer">
+            <svg viewBox="0 0 24 24"><path d="M12 0L24 24H0L12 0Z" /></svg>
+        </div>
+
+        <!-- Canvas -->
+        <canvas id="wheelCanvas"></canvas>
+
+        <!-- Center hub -->
+        <div class="hub"></div>
+    </div>
+
+    <div class="flex gap-4 w-full max-w-sm">
+        <button id="backBtn" class="flex-1 bg-white/70 hover:bg-white text-gray-800 font-bold py-3 rounded-xl shadow-md backdrop-blur-sm transition-colors">
+            Back
+        </button>
+        <button id="runBtn" class="flex-[2] bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 text-xl tracking-wide">
+            RUN !
+        </button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- RESULT MODAL                                                 -->
+<!-- ============================================================ -->
+<div id="resultModal" class="modal-overlay hidden">
+    <div class="modal-box">
+        <div class="text-5xl mb-3">🎉</div>
+        <h2 class="text-2xl font-bold text-gray-700 mb-1">Congratulations</h2>
+        <p id="winnerName" class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 py-2">
+            Winner
+        </p>
+        <p class="text-xl text-gray-600 font-medium mb-6">you've been selected!</p>
+        <button id="closeModalBtn" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">
+            Awesome!
+        </button>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT                                                   -->
+<!-- ============================================================ -->
+<script>
+    (function() {
+        'use strict';
+
+        // ─── DOM refs ──────────────────────────────────────────────
+        const pageInput = document.getElementById('pageInput');
+        const pageWheel = document.getElementById('pageWheel');
+        const namesInput = document.getElementById('namesInput');
+        const lineNumbers = document.getElementById('lineNumbers');
+        const inputArea = document.getElementById('inputArea');
+        const executeBtn = document.getElementById('executeBtn');
+        const errorBox = document.getElementById('errorBox');
+        const backBtn = document.getElementById('backBtn');
+        const runBtn = document.getElementById('runBtn');
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const pointer = document.getElementById('pointer');
+        const resultModal = document.getElementById('resultModal');
+        const winnerNameEl = document.getElementById('winnerName');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const emojiContainer = document.getElementById('emojiContainer');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileBadge = document.getElementById('fileBadge');
+        const fileName = document.getElementById('fileName');
+        const removeFile = document.getElementById('removeFile');
+
+        // ─── State ────────────────────────────────────────────────
+        let names = [];
+        let currentAngle = 0;
+        let isSpinning = false;
+        let spinVelocity = 0;
+        let animationId = null;
+        let canvasSize = 0;
+
+        // ─── Emoji rain ────────────────────────────────────────────
+        const EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🥳', '💰'];
+
+        function spawnEmoji() {
+            const el = document.createElement('div');
+            el.className = 'emoji-float';
+            el.textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            el.style.left = (5 + Math.random() * 90) + 'vw';
+            el.style.top = (10 + Math.random() * 80) + 'vh';
+            const dur = 2.5 + Math.random() * 3;
+            el.style.animationDuration = dur + 's';
+            emojiContainer.appendChild(el);
+            setTimeout(() => { if (el.parentNode) el.remove(); }, dur * 1000);
+        }
+        setInterval(spawnEmoji, 450);
+
+        // ─── Line numbers ──────────────────────────────────────────
+        function updateLineNumbers() {
+            const lines = namesInput.value.split('\n');
+            const count = lines.length;
+            // Build line numbers string with proper newlines
+            let nums = '';
+            for (let i = 1; i <= count; i++) {
+                nums += i + '\n';
+            }
+            lineNumbers.textContent = nums.trimEnd();
+            // Sync scroll
+            lineNumbers.scrollTop = namesInput.scrollTop;
+        }
+
+        // Sync scroll
+        namesInput.addEventListener('scroll', () => {
+            lineNumbers.scrollTop = namesInput.scrollTop;
+        });
+
+        // Update on any input
+        namesInput.addEventListener('input', updateLineNumbers);
+
+        // Initial update
+        updateLineNumbers();
+
+        // ─── ResizeObserver for canvas ────────────────────────────
+        const container = canvas.parentElement;
+
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            const size = Math.floor(rect.width * (window.devicePixelRatio || 1));
+            if (size > 0 && size !== canvasSize) {
+                canvasSize = size;
+                canvas.width = size;
+                canvas.height = size;
+                drawWheel(currentAngle);
+            } else if (size === 0) {
+                const fallback = 400;
+                canvasSize = fallback;
+                canvas.width = fallback;
+                canvas.height = fallback;
+                drawWheel(currentAngle);
+            }
+        }
+
+        const ro = new ResizeObserver(() => { resizeCanvas(); });
+        ro.observe(container);
+        window.addEventListener('resize', resizeCanvas);
+        requestAnimationFrame(resizeCanvas);
+
+        // ─── Color generator ──────────────────────────────────────
+        function getColor(index, total) {
+            const hue = (index * (360 / total)) % 360;
+            return `hsl(${hue}, 80%, 60%)`;
+        }
+
+        // ─── Draw wheel ──────────────────────────────────────────
+        function drawWheel(angle) {
+            const w = canvas.width;
+            const h = canvas.height;
+            if (!w || !h) return;
+            const rad = Math.min(w, h) / 2 - 4;
+            const cx = w / 2;
+            const cy = h / 2;
+            const num = names.length;
+            if (num === 0) {
+                ctx.clearRect(0, 0, w, h);
+                return;
+            }
+
+            ctx.clearRect(0, 0, w, h);
+
+            const arc = (Math.PI * 2) / num;
+
+            for (let i = 0; i < num; i++) {
+                const start = angle + i * arc - Math.PI / 2;
+                const end = angle + (i + 1) * arc - Math.PI / 2;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, rad, start, end);
+                ctx.closePath();
+
+                ctx.fillStyle = getColor(i, num);
+                ctx.fill();
+
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                ctx.stroke();
+
+                // text
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(start + arc / 2);
+
+                const fontSize = Math.max(12, Math.min(26, (rad * arc) / 2.2));
+                ctx.font = `bold ${fontSize}px Inter, "Segoe UI", sans-serif`;
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 6;
+                ctx.shadowOffsetX = 1;
+                ctx.shadowOffsetY = 1;
+                ctx.fillStyle = '#fff';
+
+                let label = names[i];
+                const maxW = rad - 30;
+                if (ctx.measureText(label).width > maxW) {
+                    while (ctx.measureText(label + '…').width > maxW && label.length > 1) {
+                        label = label.slice(0, -1);
+                    }
+                    label += '…';
+                }
+                ctx.fillText(label, rad - 12, 0);
+                ctx.restore();
+            }
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, rad * 0.06, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fill();
+        }
+
+        // ─── Spin logic ──────────────────────────────────────────
+        function startSpin() {
+            if (isSpinning || names.length < 2) return;
+            isSpinning = true;
+            runBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            backBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            spinVelocity = 0.45 + Math.random() * 0.35;
+            const f = 0.982 + Math.random() * 0.006;
+            animateSpin(f);
+        }
+
+        function animateSpin(friction) {
+            currentAngle += spinVelocity;
+            spinVelocity *= friction;
+
+            drawWheel(currentAngle);
+
+            if (names.length > 0) {
+                const arc = (Math.PI * 2) / names.length;
+                const tick = ((currentAngle % arc) / arc);
+                let deg = 0;
+                if (tick > 0.85) {
+                    deg = (tick - 0.85) / 0.15 * 12;
+                } else if (tick < 0.15) {
+                    deg = 12 - (tick / 0.15) * 12;
+                }
+                pointer.style.transform = `translateX(-50%) rotate(180deg) rotateZ(${-deg}deg)`;
+            }
+
+            if (spinVelocity > 0.001) {
+                animationId = requestAnimationFrame(() => animateSpin(friction));
+            } else {
+                isSpinning = false;
+                spinVelocity = 0;
+                pointer.style.transform = 'translateX(-50%) rotate(180deg) rotateZ(0deg)';
+                runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                cancelAnimationFrame(animationId);
+                determineWinner();
+            }
+        }
+
+        function determineWinner() {
+            const num = names.length;
+            if (num === 0) return;
+            const arc = (Math.PI * 2) / num;
+            let a = currentAngle % (Math.PI * 2);
+            if (a < 0) a += Math.PI * 2;
+            const rel = (Math.PI * 2 - a) % (Math.PI * 2);
+            const idx = Math.floor(rel / arc) % num;
+            const winner = names[idx] || names[0];
+            showModal(winner);
+        }
+
+        // ─── Modal ──────────────────────────────────────────────
+        function showModal(winner) {
+            winnerNameEl.textContent = winner;
+            resultModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            resultModal.classList.add('hidden');
+        }
+
+        // ─── Page transitions ────────────────────────────────────
+        function goToWheel() {
+            // Parse names from textarea
+            const raw = namesInput.value;
+            const parsed = raw.split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+
+            if (parsed.length < 2) {
+                errorBox.classList.remove('hidden');
+                namesInput.classList.add('shake');
+                setTimeout(() => namesInput.classList.remove('shake'), 500);
+                return;
+            }
+            errorBox.classList.add('hidden');
+            names = parsed;
+            currentAngle = 0;
+
+            pageInput.classList.remove('page-visible');
+            pageInput.classList.add('page-hidden');
+            pageWheel.classList.remove('page-hidden');
+            pageWheel.classList.add('page-visible');
+            requestAnimationFrame(resizeCanvas);
+            drawWheel(0);
+        }
+
+        function goToInput() {
+            if (isSpinning) return;
+            pageWheel.classList.remove('page-visible');
+            pageWheel.classList.add('page-hidden');
+            pageInput.classList.remove('page-hidden');
+            pageInput.classList.add('page-visible');
+        }
+
+        // ─── File upload ──────────────────────────────────────────
+        function parseFileContent(text) {
+            // Detect delimiter: try common ones
+            const lines = text.split('\n').filter(s => s.trim().length > 0);
+            if (lines.length === 0) return [];
+
+            // Check if it's a single column (one name per line)
+            // Count delimiters per line
+            let delimCounts = { ',': 0, ';': 0, '\t': 0, ' ': 0, '|': 0 };
+            let totalLines = 0;
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed === '') continue;
+                totalLines++;
+                for (const d of Object.keys(delimCounts)) {
+                    const count = (trimmed.match(new RegExp(d, 'g')) || []).length;
+                    if (count > 0) delimCounts[d] += count;
+                }
+            }
+
+            // Find the delimiter with the highest count
+            let bestDelim = null;
+            let bestCount = 0;
+            for (const [d, count] of Object.entries(delimCounts)) {
+                if (count > bestCount && count > 0) {
+                    bestCount = count;
+                    bestDelim = d;
+                }
+            }
+
+            // If no delimiter found, treat each line as a name
+            if (!bestDelim) {
+                return lines.map(s => s.trim()).filter(s => s.length > 0);
+            }
+
+            // Parse with the detected delimiter
+            const result = [];
+            for (const line of lines) {
+                const parts = line.split(bestDelim).map(s => s.trim()).filter(s => s.length > 0);
+                for (const p of parts) {
+                    if (p.length > 0) result.push(p);
+                }
+            }
+            return result;
+        }
+
+        function handleFile(file) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'csv' && ext !== 'txt') {
+                alert('Unsupported file type. Please upload a .csv or .txt file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target.result;
+                const parsed = parseFileContent(content);
+                if (parsed.length === 0) {
+                    alert('No names found in the file. Please check the format.');
+                    return;
+                }
+                // Populate textarea with parsed names (one per line)
+                namesInput.value = parsed.join('\n');
+                updateLineNumbers();
+                // Show file badge
+                fileName.textContent = file.name;
+                fileBadge.classList.remove('hidden');
+                // Clear error
+                errorBox.classList.add('hidden');
+                // Trigger validation
+                const raw = namesInput.value;
+                const lines = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                if (lines.length >= 2) {
+                    errorBox.classList.add('hidden');
+                }
+            };
+            reader.onerror = () => {
+                alert('Error reading file.');
+            };
+            reader.readAsText(file);
+        }
+
+        // Upload button
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (fileInput.files.length > 0) {
+                handleFile(fileInput.files[0]);
+            }
+            fileInput.value = '';
+        });
+
+        // Remove file badge
+        removeFile.addEventListener('click', () => {
+            fileBadge.classList.add('hidden');
+            // Don't clear the textarea, just hide the badge
+        });
+
+        // ─── Drag and drop ──────────────────────────────────────
+        let dragCounter = 0;
+
+        inputArea.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter++;
+            if (dragCounter === 1) {
+                inputArea.classList.add('drag-over');
+            }
+        });
+
+        inputArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            inputArea.classList.add('drag-over');
+        });
+
+        inputArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter--;
+            if (dragCounter === 0) {
+                inputArea.classList.remove('drag-over');
+            }
+        });
+
+        inputArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            inputArea.classList.remove('drag-over');
+
+            const files = e.dataTransfer.files;
+            if (files.length === 0) return;
+            const file = files[0];
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (ext !== 'csv' && ext !== 'txt') {
+                alert('Unsupported file type. Please drop a .csv or .txt file.');
+                return;
+            }
+            handleFile(file);
+        });
+
+        // ─── Event listeners ────────────────────────────────────
+        executeBtn.addEventListener('click', goToWheel);
+
+        backBtn.addEventListener('click', goToInput);
+
+        runBtn.addEventListener('click', startSpin);
+
+        closeModalBtn.addEventListener('click', hideModal);
+
+        resultModal.addEventListener('click', (e) => {
+            if (e.target === resultModal) hideModal();
+        });
+
+        // Keyboard: Ctrl+Enter on textarea
+        namesInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                executeBtn.click();
+            }
+        });
+
+        // ─── Pre‑fill sample with placeholder only ──────────────
+        namesInput.value = '';
+        updateLineNumbers();
+
+        // ─── Expose for debugging ──────────────────────────────
+        window.__wheel = { drawWheel, startSpin, names, currentAngle };
+
+        console.log('🎡 GITD Wheel of Luck ready!');
+    })();
+</script>
+
+</body>
+</html>
