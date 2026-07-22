@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>GITD Wheel of Luck</title>
-    <link rel="icon" href="https://my.jobstreet.com/static/shared-web/favicon-4e1897dfd0901e8a3bf7e604d3a90636.ico" type="image/x-icon">
+    <!-- Favicon -->
+    <link rel="icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="https://www.citi.com/cbol-pre-login-static-assets/assets/favicon.ico" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com">
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
@@ -20,10 +22,13 @@
             margin: 0;
             min-height: 100vh;
             background: #1a1a2e;
-            overflow: hidden;
+            /* allow vertical scrolling when content overflows */
+            overflow-y: auto;
+            overflow-x: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 1.5rem;
         }
 
         /* ── animated gradient background ── */
@@ -152,6 +157,9 @@
         /* ── page transitions ── */
         .page {
             transition: opacity 0.4s ease, visibility 0.4s ease;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
         }
         .page-hidden {
             opacity: 0;
@@ -251,9 +259,11 @@
             background: transparent;
             resize: vertical;
             min-height: 200px;
+            max-height: 60vh;
             color: #1e293b;
             transition: background 0.2s;
             width: 100%;
+            overflow-y: auto;
         }
         .input-textarea::placeholder {
             color: #94a3b8;
@@ -365,19 +375,16 @@
                 font-size: 0.8rem;
                 padding: 10px 10px;
                 min-height: 160px;
+                max-height: 50vh;
+            }
+            body {
+                padding: 0.75rem;
             }
         }
         @media (min-width: 1024px) {
             .emoji-float {
                 font-size: 3.5rem;
             }
-        }
-
-        /* ── scroll sync helper ── */
-        .line-numbers-scroll {
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
         }
     </style>
 </head>
@@ -392,7 +399,7 @@
     <!-- ============================================================ -->
     <!-- PAGE 1 – INPUT                                               -->
     <!-- ============================================================ -->
-    <div id="pageInput" class="page page-visible" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;">
+    <div id="pageInput" class="page page-visible" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;width:100%;">
         <div class="glass rounded-3xl shadow-2xl max-w-2xl w-full p-6 md:p-8 relative overflow-hidden">
             <div class="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500"></div>
 
@@ -442,7 +449,7 @@
 <!-- ============================================================ -->
 <!-- PAGE 2 – WHEEL                                               -->
 <!-- ============================================================ -->
-<div id="pageWheel" class="page page-hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;gap:1.5rem;">
+<div id="pageWheel" class="page page-hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;gap:1.5rem;width:100%;">
 
     <h2 class="text-3xl md:text-4xl font-extrabold text-white drop-shadow-md text-center">
         Are you ready?
@@ -546,25 +553,19 @@
         function updateLineNumbers() {
             const lines = namesInput.value.split('\n');
             const count = lines.length;
-            // Build line numbers string with proper newlines
             let nums = '';
             for (let i = 1; i <= count; i++) {
                 nums += i + '\n';
             }
             lineNumbers.textContent = nums.trimEnd();
-            // Sync scroll
             lineNumbers.scrollTop = namesInput.scrollTop;
         }
 
-        // Sync scroll
         namesInput.addEventListener('scroll', () => {
             lineNumbers.scrollTop = namesInput.scrollTop;
         });
 
-        // Update on any input
         namesInput.addEventListener('input', updateLineNumbers);
-
-        // Initial update
         updateLineNumbers();
 
         // ─── ResizeObserver for canvas ────────────────────────────
@@ -632,7 +633,6 @@
                 ctx.strokeStyle = 'rgba(255,255,255,0.8)';
                 ctx.stroke();
 
-                // text
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.rotate(start + arc / 2);
@@ -732,7 +732,6 @@
 
         // ─── Page transitions ────────────────────────────────────
         function goToWheel() {
-            // Parse names from textarea
             const raw = namesInput.value;
             const parsed = raw.split('\n')
                 .map(s => s.trim())
@@ -766,12 +765,9 @@
 
         // ─── File upload ──────────────────────────────────────────
         function parseFileContent(text) {
-            // Detect delimiter: try common ones
             const lines = text.split('\n').filter(s => s.trim().length > 0);
             if (lines.length === 0) return [];
 
-            // Check if it's a single column (one name per line)
-            // Count delimiters per line
             let delimCounts = { ',': 0, ';': 0, '\t': 0, ' ': 0, '|': 0 };
             let totalLines = 0;
             for (const line of lines) {
@@ -784,7 +780,6 @@
                 }
             }
 
-            // Find the delimiter with the highest count
             let bestDelim = null;
             let bestCount = 0;
             for (const [d, count] of Object.entries(delimCounts)) {
@@ -794,12 +789,10 @@
                 }
             }
 
-            // If no delimiter found, treat each line as a name
             if (!bestDelim) {
                 return lines.map(s => s.trim()).filter(s => s.length > 0);
             }
 
-            // Parse with the detected delimiter
             const result = [];
             for (const line of lines) {
                 const parts = line.split(bestDelim).map(s => s.trim()).filter(s => s.length > 0);
@@ -825,15 +818,11 @@
                     alert('No names found in the file. Please check the format.');
                     return;
                 }
-                // Populate textarea with parsed names (one per line)
                 namesInput.value = parsed.join('\n');
                 updateLineNumbers();
-                // Show file badge
                 fileName.textContent = file.name;
                 fileBadge.classList.remove('hidden');
-                // Clear error
                 errorBox.classList.add('hidden');
-                // Trigger validation
                 const raw = namesInput.value;
                 const lines = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
                 if (lines.length >= 2) {
@@ -846,7 +835,6 @@
             reader.readAsText(file);
         }
 
-        // Upload button
         uploadBtn.addEventListener('click', () => {
             fileInput.click();
         });
@@ -858,10 +846,8 @@
             fileInput.value = '';
         });
 
-        // Remove file badge
         removeFile.addEventListener('click', () => {
             fileBadge.classList.add('hidden');
-            // Don't clear the textarea, just hide the badge
         });
 
         // ─── Drag and drop ──────────────────────────────────────
@@ -921,7 +907,6 @@
             if (e.target === resultModal) hideModal();
         });
 
-        // Keyboard: Ctrl+Enter on textarea
         namesInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
