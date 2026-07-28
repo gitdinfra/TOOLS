@@ -6,29 +6,23 @@
     <title>GITD Wheel of Luck</title>
     <!-- Favicon -->
     <link rel="icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
-    <link rel="shortcut icon" href="https://www.citi.com/cbol-pre-login-static-assets/assets/favicon.ico" type="image/x-icon" />
-    <script src="https://cdn.tailwindcss.com">
-    </script>
+    <link rel="shortcut icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <style>
         /* ── reset & base ── */
-        *,
-        *::before,
-        *::after {
-            box-sizing: border-box;
-        }
-        body {
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
             font-family: 'Inter', sans-serif;
             margin: 0;
             min-height: 100vh;
             background: #1a1a2e;
-            /* allow vertical scrolling when content overflows */
-            overflow-y: auto;
             overflow-x: hidden;
+            overflow-y: auto;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 1.5rem;
+            padding: 1rem;
         }
 
         /* ── animated gradient background ── */
@@ -41,19 +35,13 @@
             animation: gradShift 18s ease infinite;
         }
         @keyframes gradShift {
-            0% {
-                background-position: 0% 50%;
-            }
-            50% {
-                background-position: 100% 50%;
-            }
-            100% {
-                background-position: 0% 50%;
-            }
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
-        /* ── floating emojis ── */
-        .emoji-float {
+        /* ── floating emojis (normal, rain, fountain) ── */
+        .bg-emoji {
             position: absolute;
             font-size: 2.5rem;
             animation: floatUp ease-in-out forwards;
@@ -62,22 +50,18 @@
             z-index: 1;
         }
         @keyframes floatUp {
-            0% {
-                transform: translateY(0) scale(0.3) rotate(0deg);
-                opacity: 0;
-            }
-            15% {
-                opacity: 1;
-                transform: translateY(-4vh) scale(1.2) rotate(6deg);
-            }
-            80% {
-                opacity: 1;
-                transform: translateY(-20vh) scale(1) rotate(-4deg);
-            }
-            100% {
-                transform: translateY(-30vh) scale(0.4) rotate(0deg);
-                opacity: 0;
-            }
+            0% { transform: translateY(0) scale(0.3) rotate(0deg); opacity: 0; }
+            15% { opacity: 1; transform: translateY(-4vh) scale(1.2) rotate(6deg); }
+            80% { opacity: 1; transform: translateY(-20vh) scale(1) rotate(-4deg); }
+            100% { transform: translateY(-30vh) scale(0.4) rotate(0deg); opacity: 0; }
+        }
+
+        .rain-emoji, .fountain-emoji {
+            position: absolute;
+            pointer-events: none;
+            user-select: none;
+            z-index: 1;
+            will-change: transform, opacity;
         }
 
         /* ── glass card ── */
@@ -88,10 +72,10 @@
             border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
-        /* ── wheel container – always a perfect square ── */
+        /* ── wheel container ── */
         .wheel-container {
             position: relative;
-            width: min(85vw, 70vh, 550px);
+            width: min(90vw, 85vh, 800px);
             aspect-ratio: 1 / 1;
             touch-action: none;
             user-select: none;
@@ -104,27 +88,33 @@
             box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(255, 255, 255, 0.5);
             background: #f0f0f0;
             touch-action: none;
-            cursor: pointer;
+            cursor: default;
         }
 
         /* ── pointer ── */
         .pointer {
             position: absolute;
-            top: -12px;
+            top: -16px;
             left: 50%;
-            transform: translateX(-50%) rotate(180deg);
+            transform: translateX(-50%) rotate(0deg);
             z-index: 20;
-            width: 12%;
-            aspect-ratio: 1 / 1.6;
-            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
-            transition: transform 0.06s ease-out;
+            font-size: 4.5rem;
+            line-height: 1;
+            text-align: center;
+            color: #8B5A2B;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            transition: transform 0.05s ease-out;
+            pointer-events: none;
+            font-family: 'Segoe UI', 'Arial Unicode MS', sans-serif;
+            width: 1.4em;
+            height: 1.4em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            will-change: transform;
+            font-weight: 700;
         }
-        .pointer svg {
-            display: block;
-            width: 100%;
-            height: 100%;
-            fill: white;
-        }
+        .pointer.flashing { animation: none; }
 
         /* ── center hub ── */
         .hub {
@@ -154,6 +144,54 @@
             box-shadow: inset 0 2px 6px rgba(255, 255, 255, 0.3);
         }
 
+        /* ── center name display (rectangular oval) ── */
+        .center-name-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            color: #ffffff;
+            padding: 0.5rem 1.5rem;
+            border-radius: 9999px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            z-index: 16;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+            max-width: 85%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            opacity: 0;
+        }
+        .center-name-display:not(.hidden) {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ── hover tooltip ── */
+        .wheel-tooltip {
+            position: fixed;
+            pointer-events: none;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            color: white;
+            padding: 0.4rem 1rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            z-index: 50;
+            transform: translate(12px, -50%);
+            display: none;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
         /* ── page transitions ── */
         .page {
             transition: opacity 0.4s ease, visibility 0.4s ease;
@@ -175,7 +213,7 @@
             position: relative;
         }
 
-        /* ── modal ── */
+        /* ── modals ── */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -209,7 +247,7 @@
         }
 
         /* ── input with line numbers ── */
-        .input-area {
+        .input-wrapper {
             display: flex;
             border-radius: 0.75rem;
             border: 2px solid rgba(255, 255, 255, 0.5);
@@ -217,13 +255,14 @@
             overflow: hidden;
             transition: background 0.2s, border-color 0.2s;
             position: relative;
+            max-height: 65vh;
         }
-        .input-area:focus-within {
+        .input-wrapper:focus-within {
             background: rgba(255, 255, 255, 0.9);
             border-color: #a78bfa;
             box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.25);
         }
-        .input-area.drag-over {
+        .input-wrapper.drag-over {
             background: rgba(167, 139, 250, 0.2);
             border-color: #7c3aed;
             box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.3);
@@ -237,15 +276,14 @@
             color: #94a3b8;
             text-align: right;
             user-select: none;
-            min-width: 32px;
-            overflow: hidden;
+            min-width: 40px;
             background: rgba(0, 0, 0, 0.02);
             border-right: 1px solid rgba(0, 0, 0, 0.06);
-            white-space: pre-wrap;
-            word-wrap: break-word;
+            white-space: pre;
+            overflow: hidden;
+            flex-shrink: 0;
             padding-top: 12px;
             padding-bottom: 12px;
-            flex-shrink: 0;
         }
 
         .input-textarea {
@@ -259,29 +297,24 @@
             background: transparent;
             resize: vertical;
             min-height: 200px;
-            max-height: 60vh;
+            max-height: 65vh;
             color: #1e293b;
             transition: background 0.2s;
             width: 100%;
             overflow-y: auto;
+            tab-size: 4;
         }
         .input-textarea::placeholder {
             color: #94a3b8;
             font-weight: 400;
         }
-        .input-textarea::-webkit-scrollbar {
-            width: 6px;
-        }
-        .input-textarea::-webkit-scrollbar-track {
-            background: transparent;
-        }
+        .input-textarea::-webkit-scrollbar { width: 6px; }
+        .input-textarea::-webkit-scrollbar-track { background: transparent; }
         .input-textarea::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 999px;
         }
-        .input-textarea::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        .input-textarea::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* ── upload button ── */
         .upload-btn {
@@ -304,14 +337,8 @@
             border-color: #7c3aed;
             color: #1e293b;
         }
-        .upload-btn:active {
-            transform: scale(0.96);
-        }
-        .upload-btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
+        .upload-btn:active { transform: scale(0.96); }
+        .upload-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
 
         /* ── file name badge ── */
         .file-badge {
@@ -335,56 +362,29 @@
             color: #94a3b8;
             transition: color 0.2s;
         }
-        .file-badge .remove-file:hover {
-            color: #ef4444;
-        }
+        .file-badge .remove-file:hover { color: #ef4444; }
 
         /* ── utilities ── */
-        .shake {
-            animation: shake 0.5s ease;
-        }
+        .shake { animation: shake 0.5s ease; }
         @keyframes shake {
-            0%,
-            100% {
-                transform: translateX(0);
-            }
-            20% {
-                transform: translateX(-10px);
-            }
-            40% {
-                transform: translateX(10px);
-            }
-            60% {
-                transform: translateX(-6px);
-            }
-            80% {
-                transform: translateX(6px);
-            }
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
         }
 
         @media (max-width: 640px) {
-            .emoji-float {
-                font-size: 1.8rem;
-            }
-            .line-numbers {
-                font-size: 0.7rem;
-                padding: 10px 4px 10px 8px;
-                min-width: 26px;
-            }
-            .input-textarea {
-                font-size: 0.8rem;
-                padding: 10px 10px;
-                min-height: 160px;
-                max-height: 50vh;
-            }
-            body {
-                padding: 0.75rem;
-            }
+            .pointer { font-size: 3.2rem; top: -10px; }
+            .line-numbers { font-size: 0.7rem; padding: 10px 4px 10px 8px; min-width: 30px; }
+            .input-textarea { font-size: 0.8rem; padding: 10px 10px; min-height: 160px; max-height: 50vh; }
+            .input-wrapper { max-height: 55vh; }
+            body { padding: 0.75rem; }
+            .wheel-container { width: min(92vw, 80vh); }
         }
         @media (min-width: 1024px) {
-            .emoji-float {
-                font-size: 3.5rem;
-            }
+            .pointer { font-size: 6rem; top: -22px; }
+            .wheel-container { width: min(88vw, 85vh, 800px); }
         }
     </style>
 </head>
@@ -392,8 +392,7 @@
 
     <!-- animated background -->
     <div class="bg-gradient-animated"></div>
-
-    <!-- floating emojis container -->
+    <!-- emoji container -->
     <div id="emojiContainer" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;"></div>
 
     <!-- ============================================================ -->
@@ -410,21 +409,22 @@
                 Enter names below (one per line).<br />Minimum 2 required.
             </p>
 
-            <!-- Input with line numbers -->
-            <div class="input-area" id="inputArea">
-                <div class="line-numbers" id="lineNumbers">1</div>
-                <textarea id="namesInput" class="input-textarea"
-                placeholder="Please enter names here or you may upload CSV or text file."
-                spellcheck="false"></textarea>
+            <!-- Inline Warning for > 80 entries -->
+            <div id="largeListWarning" class="hidden mb-3 bg-amber-100 border border-amber-400 text-amber-800 px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm text-sm transition-all duration-300">
+                <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                <span class="font-semibold">Large list detected (>80 names). Names will be displayed smaller on the wheel to fit.</span>
             </div>
 
-            <!-- Error notice -->
+            <div class="input-wrapper" id="inputWrapper">
+                <div class="line-numbers" id="lineNumbers">1</div>
+                <textarea id="namesInput" class="input-textarea" placeholder="Please enter names here or you may upload CSV or text file." spellcheck="false"></textarea>
+            </div>
+
             <div id="errorBox" class="hidden mt-3 bg-red-100 border border-red-400 text-red-700 px-4 py-2.5 rounded-lg flex items-center gap-2 shadow-sm text-sm">
                 <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
                 <span class="font-semibold">Please enter at least 2 names.</span>
             </div>
 
-            <!-- Upload row -->
             <div class="flex flex-wrap items-center gap-3 mt-4">
                 <input type="file" id="fileInput" accept=".csv,.txt" style="display:none;" />
                 <button id="uploadBtn" class="upload-btn" type="button">
@@ -438,492 +438,744 @@
                 <span class="text-xs text-gray-400 ml-auto hidden sm:inline">or drag &amp; drop onto the field</span>
             </div>
 
-            <!-- Execute button -->
-            <button id="executeBtn"
-            class="mt-5 w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:-translate-y-0.5 active:translate-y-0 text-lg">
-            Execute
-        </button>
+            <button id="executeBtn" class="mt-5 w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:-translate-y-0.5 active:translate-y-0 text-lg">
+                Execute
+            </button>
+        </div>
     </div>
-</div>
 
-<!-- ============================================================ -->
-<!-- PAGE 2 – WHEEL                                               -->
-<!-- ============================================================ -->
-<div id="pageWheel" class="page page-hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;gap:1.5rem;width:100%;">
+    <!-- ============================================================ -->
+    <!-- PAGE 2 – WHEEL                                               -->
+    <!-- ============================================================ -->
+    <div id="pageWheel" class="page page-hidden" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;z-index:10;gap:1.5rem;width:100%;">
+        <h2 class="text-3xl md:text-4xl font-extrabold text-white drop-shadow-md text-center">
+            Are you ready?
+        </h2>
 
-    <h2 class="text-3xl md:text-4xl font-extrabold text-white drop-shadow-md text-center">
-        Are you ready?
-    </h2>
-
-    <div class="wheel-container">
-        <!-- Pointer -->
-        <div class="pointer" id="pointer">
-            <svg viewBox="0 0 24 24"><path d="M12 0L24 24H0L12 0Z" /></svg>
+        <div class="wheel-container">
+            <div class="pointer" id="pointer">▼</div>
+            <canvas id="wheelCanvas"></canvas>
+            <div class="hub"></div>
+            <!-- Center Name Display (Rectangular Oval) -->
+            <div id="centerNameDisplay" class="center-name-display hidden"></div>
+            <div id="wheelTooltip" class="wheel-tooltip"></div>
         </div>
 
-        <!-- Canvas -->
-        <canvas id="wheelCanvas"></canvas>
-
-        <!-- Center hub -->
-        <div class="hub"></div>
+        <div class="flex gap-4 w-full max-w-sm">
+            <button id="backBtn" class="flex-1 bg-white/70 hover:bg-white text-gray-800 font-bold py-3 rounded-xl shadow-md backdrop-blur-sm transition-colors">
+                Back
+            </button>
+            <button id="runBtn" class="flex-[2] bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 text-xl tracking-wide">
+                RUN !
+            </button>
+        </div>
     </div>
 
-    <div class="flex gap-4 w-full max-w-sm">
-        <button id="backBtn" class="flex-1 bg-white/70 hover:bg-white text-gray-800 font-bold py-3 rounded-xl shadow-md backdrop-blur-sm transition-colors">
-            Back
-        </button>
-        <button id="runBtn" class="flex-[2] bg-gradient-to-r from-green-400 to-emerald-600 hover:from-green-300 hover:to-emerald-500 text-white font-bold py-3 rounded-xl shadow-lg transform transition hover:scale-105 active:scale-95 text-xl tracking-wide">
-            RUN !
-        </button>
+    <!-- ============================================================ -->
+    <!-- RESULT MODAL                                                 -->
+    <!-- ============================================================ -->
+    <div id="resultModal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <div class="text-5xl mb-3">🎉</div>
+            <h2 class="text-2xl font-bold text-gray-700 mb-1">Congratulations</h2>
+            <p id="winnerName" class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 py-2">
+                Winner
+            </p>
+            <p class="text-xl text-gray-600 font-medium mb-6">you've been selected!</p>
+            <button id="closeModalBtn" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">
+                Awesome!
+            </button>
+        </div>
     </div>
-</div>
 
-<!-- ============================================================ -->
-<!-- RESULT MODAL                                                 -->
-<!-- ============================================================ -->
-<div id="resultModal" class="modal-overlay hidden">
-    <div class="modal-box">
-        <div class="text-5xl mb-3">🎉</div>
-        <h2 class="text-2xl font-bold text-gray-700 mb-1">Congratulations</h2>
-        <p id="winnerName" class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 py-2">
-            Winner
-        </p>
-        <p class="text-xl text-gray-600 font-medium mb-6">you've been selected!</p>
-        <button id="closeModalBtn" class="w-full bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">
-            Awesome!
-        </button>
-    </div>
-</div>
+    <!-- ============================================================ -->
+    <!-- JAVASCRIPT                                                   -->
+    <!-- ============================================================ -->
+    <script>
+        (function() {
+            'use strict';
 
-<!-- ============================================================ -->
-<!-- JAVASCRIPT                                                   -->
-<!-- ============================================================ -->
-<script>
-    (function() {
-        'use strict';
+            // ─── DOM refs ──────────────────────────────────────────────
+            const pageInput = document.getElementById('pageInput');
+            const pageWheel = document.getElementById('pageWheel');
+            const namesInput = document.getElementById('namesInput');
+            const lineNumbers = document.getElementById('lineNumbers');
+            const inputWrapper = document.getElementById('inputWrapper');
+            const executeBtn = document.getElementById('executeBtn');
+            const errorBox = document.getElementById('errorBox');
+            const largeListWarning = document.getElementById('largeListWarning');
+            const backBtn = document.getElementById('backBtn');
+            const runBtn = document.getElementById('runBtn');
+            const canvas = document.getElementById('wheelCanvas');
+            const ctx = canvas.getContext('2d');
+            const pointer = document.getElementById('pointer');
+            const resultModal = document.getElementById('resultModal');
+            const winnerNameEl = document.getElementById('winnerName');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const tooltip = document.getElementById('wheelTooltip');
+            const centerNameDisplay = document.getElementById('centerNameDisplay');
+            const emojiContainer = document.getElementById('emojiContainer');
+            const fileInput = document.getElementById('fileInput');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const fileBadge = document.getElementById('fileBadge');
+            const fileName = document.getElementById('fileName');
+            const removeFile = document.getElementById('removeFile');
 
-        // ─── DOM refs ──────────────────────────────────────────────
-        const pageInput = document.getElementById('pageInput');
-        const pageWheel = document.getElementById('pageWheel');
-        const namesInput = document.getElementById('namesInput');
-        const lineNumbers = document.getElementById('lineNumbers');
-        const inputArea = document.getElementById('inputArea');
-        const executeBtn = document.getElementById('executeBtn');
-        const errorBox = document.getElementById('errorBox');
-        const backBtn = document.getElementById('backBtn');
-        const runBtn = document.getElementById('runBtn');
-        const canvas = document.getElementById('wheelCanvas');
-        const ctx = canvas.getContext('2d');
-        const pointer = document.getElementById('pointer');
-        const resultModal = document.getElementById('resultModal');
-        const winnerNameEl = document.getElementById('winnerName');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const emojiContainer = document.getElementById('emojiContainer');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const fileBadge = document.getElementById('fileBadge');
-        const fileName = document.getElementById('fileName');
-        const removeFile = document.getElementById('removeFile');
+            // ─── State ────────────────────────────────────────────────
+            let names = [];
+            let currentAngle = 0;
+            let isSpinning = false;
+            let spinVelocity = 0;
+            let animationId = null;
+            let canvasSize = 0;
 
-        // ─── State ────────────────────────────────────────────────
-        let names = [];
-        let currentAngle = 0;
-        let isSpinning = false;
-        let spinVelocity = 0;
-        let animationId = null;
-        let canvasSize = 0;
+            // ─── Emoji effects state ──────────────────────────────────
+            let normalEmojiInterval = null;
+            let pointerInterval = null;
+            let rainAnimationId = null;
+            let fountainAnimationId = null;
+            let rainParticles = [];
+            let fountainParticles = [];
+            const NERVOUS_EMOJIS = ['😳', '🥶', '🤔', '🫣', '🫨', '🤨', '😐'];
+            const CELEBRATION_EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🥳', '💰'];
 
-        // ─── Emoji rain ────────────────────────────────────────────
-        const EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🥳', '💰'];
-
-        function spawnEmoji() {
-            const el = document.createElement('div');
-            el.className = 'emoji-float';
-            el.textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-            el.style.left = (5 + Math.random() * 90) + 'vw';
-            el.style.top = (10 + Math.random() * 80) + 'vh';
-            const dur = 2.5 + Math.random() * 3;
-            el.style.animationDuration = dur + 's';
-            emojiContainer.appendChild(el);
-            setTimeout(() => { if (el.parentNode) el.remove(); }, dur * 1000);
-        }
-        setInterval(spawnEmoji, 450);
-
-        // ─── Line numbers ──────────────────────────────────────────
-        function updateLineNumbers() {
-            const lines = namesInput.value.split('\n');
-            const count = lines.length;
-            let nums = '';
-            for (let i = 1; i <= count; i++) {
-                nums += i + '\n';
-            }
-            lineNumbers.textContent = nums.trimEnd();
-            lineNumbers.scrollTop = namesInput.scrollTop;
-        }
-
-        namesInput.addEventListener('scroll', () => {
-            lineNumbers.scrollTop = namesInput.scrollTop;
-        });
-
-        namesInput.addEventListener('input', updateLineNumbers);
-        updateLineNumbers();
-
-        // ─── ResizeObserver for canvas ────────────────────────────
-        const container = canvas.parentElement;
-
-        function resizeCanvas() {
-            const rect = container.getBoundingClientRect();
-            const size = Math.floor(rect.width * (window.devicePixelRatio || 1));
-            if (size > 0 && size !== canvasSize) {
-                canvasSize = size;
-                canvas.width = size;
-                canvas.height = size;
-                drawWheel(currentAngle);
-            } else if (size === 0) {
-                const fallback = 400;
-                canvasSize = fallback;
-                canvas.width = fallback;
-                canvas.height = fallback;
-                drawWheel(currentAngle);
-            }
-        }
-
-        const ro = new ResizeObserver(() => { resizeCanvas(); });
-        ro.observe(container);
-        window.addEventListener('resize', resizeCanvas);
-        requestAnimationFrame(resizeCanvas);
-
-        // ─── Color generator ──────────────────────────────────────
-        function getColor(index, total) {
-            const hue = (index * (360 / total)) % 360;
-            return `hsl(${hue}, 80%, 60%)`;
-        }
-
-        // ─── Draw wheel ──────────────────────────────────────────
-        function drawWheel(angle) {
-            const w = canvas.width;
-            const h = canvas.height;
-            if (!w || !h) return;
-            const rad = Math.min(w, h) / 2 - 4;
-            const cx = w / 2;
-            const cy = h / 2;
-            const num = names.length;
-            if (num === 0) {
-                ctx.clearRect(0, 0, w, h);
-                return;
+            // ─── Normal floating emojis ──────────────────────────────
+            function spawnNormalEmoji() {
+                const el = document.createElement('div');
+                el.className = 'bg-emoji';
+                el.textContent = CELEBRATION_EMOJIS[Math.floor(Math.random() * CELEBRATION_EMOJIS.length)];
+                el.style.left = (5 + Math.random() * 90) + 'vw';
+                el.style.top = (10 + Math.random() * 80) + 'vh';
+                const dur = 2.5 + Math.random() * 3;
+                el.style.animationDuration = dur + 's';
+                emojiContainer.appendChild(el);
+                setTimeout(() => { if (el.parentNode) el.remove(); }, dur * 1000);
             }
 
-            ctx.clearRect(0, 0, w, h);
+            function startNormalEmojis() {
+                if (normalEmojiInterval) clearInterval(normalEmojiInterval);
+                clearAllEmojis();
+                normalEmojiInterval = setInterval(spawnNormalEmoji, 450);
+                for (let i = 0; i < 5; i++) setTimeout(spawnNormalEmoji, i * 100);
+            }
 
-            const arc = (Math.PI * 2) / num;
+            function stopNormalEmojis() {
+                if (normalEmojiInterval) {
+                    clearInterval(normalEmojiInterval);
+                    normalEmojiInterval = null;
+                }
+            }
 
-            for (let i = 0; i < num; i++) {
-                const start = angle + i * arc - Math.PI / 2;
-                const end = angle + (i + 1) * arc - Math.PI / 2;
+            function clearAllEmojis() {
+                emojiContainer.innerHTML = '';
+                rainParticles = [];
+                fountainParticles = [];
+                if (rainAnimationId) { cancelAnimationFrame(rainAnimationId); rainAnimationId = null; }
+                if (fountainAnimationId) { cancelAnimationFrame(fountainAnimationId); fountainAnimationId = null; }
+            }
 
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.arc(cx, cy, rad, start, end);
-                ctx.closePath();
+            // ─── Rain effect ──────────────────────────────────────────
+            function startRain() {
+                stopNormalEmojis();
+                clearAllEmojis();
+                const count = 80;
+                for (let i = 0; i < count; i++) {
+                    const el = document.createElement('div');
+                    el.className = 'rain-emoji';
+                    el.textContent = NERVOUS_EMOJIS[Math.floor(Math.random() * NERVOUS_EMOJIS.length)];
+                    const size = 1.2 + Math.random() * 2.5;
+                    el.style.fontSize = size + 'rem';
+                    el.style.left = (Math.random() * 100) + '%';
+                    el.style.top = '-10%';
+                    el.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    el.style.opacity = 0.7 + Math.random() * 0.3;
+                    emojiContainer.appendChild(el);
+                    rainParticles.push({
+                        el: el,
+                        x: parseFloat(el.style.left),
+                        y: -10 - Math.random() * 20,
+                        speed: 2 + Math.random() * 5,
+                        rotation: parseFloat(el.style.transform.replace(/[^0-9.]/g, '')) || 0,
+                        rotSpeed: (Math.random() - 0.5) * 2,
+                        size: size
+                    });
+                }
 
-                ctx.fillStyle = getColor(i, num);
-                ctx.fill();
-
-                ctx.lineWidth = 2;
-                ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-                ctx.stroke();
-
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate(start + arc / 2);
-
-                const fontSize = Math.max(12, Math.min(26, (rad * arc) / 2.2));
-                ctx.font = `bold ${fontSize}px Inter, "Segoe UI", sans-serif`;
-                ctx.textAlign = 'right';
-                ctx.textBaseline = 'middle';
-                ctx.shadowColor = 'rgba(0,0,0,0.5)';
-                ctx.shadowBlur = 6;
-                ctx.shadowOffsetX = 1;
-                ctx.shadowOffsetY = 1;
-                ctx.fillStyle = '#fff';
-
-                let label = names[i];
-                const maxW = rad - 30;
-                if (ctx.measureText(label).width > maxW) {
-                    while (ctx.measureText(label + '…').width > maxW && label.length > 1) {
-                        label = label.slice(0, -1);
+                function animateRain() {
+                    for (const p of rainParticles) {
+                        p.y += p.speed * 0.6;
+                        p.rotation += p.rotSpeed;
+                        p.el.style.top = p.y + '%';
+                        p.el.style.transform = `rotate(${p.rotation}deg)`;
+                        if (p.y > 110) {
+                            p.y = -10 - Math.random() * 20;
+                            p.x = Math.random() * 100;
+                            p.speed = 2 + Math.random() * 5;
+                            p.el.style.left = p.x + '%';
+                            p.el.textContent = NERVOUS_EMOJIS[Math.floor(Math.random() * NERVOUS_EMOJIS.length)];
+                            p.el.style.fontSize = (1.2 + Math.random() * 2.5) + 'rem';
+                            p.rotSpeed = (Math.random() - 0.5) * 2;
+                        }
                     }
-                    label += '…';
+                    if (isSpinning) {
+                        rainAnimationId = requestAnimationFrame(animateRain);
+                    } else {
+                        rainAnimationId = null;
+                    }
                 }
-                ctx.fillText(label, rad - 12, 0);
-                ctx.restore();
+                rainAnimationId = requestAnimationFrame(animateRain);
             }
 
-            ctx.beginPath();
-            ctx.arc(cx, cy, rad * 0.06, 0, Math.PI * 2);
-            ctx.fillStyle = 'rgba(255,255,255,0.3)';
-            ctx.fill();
-        }
-
-        // ─── Spin logic ──────────────────────────────────────────
-        function startSpin() {
-            if (isSpinning || names.length < 2) return;
-            isSpinning = true;
-            runBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            backBtn.classList.add('opacity-50', 'cursor-not-allowed');
-
-            spinVelocity = 0.45 + Math.random() * 0.35;
-            const f = 0.982 + Math.random() * 0.006;
-            animateSpin(f);
-        }
-
-        function animateSpin(friction) {
-            currentAngle += spinVelocity;
-            spinVelocity *= friction;
-
-            drawWheel(currentAngle);
-
-            if (names.length > 0) {
-                const arc = (Math.PI * 2) / names.length;
-                const tick = ((currentAngle % arc) / arc);
-                let deg = 0;
-                if (tick > 0.85) {
-                    deg = (tick - 0.85) / 0.15 * 12;
-                } else if (tick < 0.15) {
-                    deg = 12 - (tick / 0.15) * 12;
+            function stopRain() {
+                if (rainAnimationId) {
+                    cancelAnimationFrame(rainAnimationId);
+                    rainAnimationId = null;
                 }
-                pointer.style.transform = `translateX(-50%) rotate(180deg) rotateZ(${-deg}deg)`;
+                for (const p of rainParticles) {
+                    if (p.el.parentNode) p.el.remove();
+                }
+                rainParticles = [];
             }
 
-            if (spinVelocity > 0.001) {
-                animationId = requestAnimationFrame(() => animateSpin(friction));
-            } else {
-                isSpinning = false;
-                spinVelocity = 0;
-                pointer.style.transform = 'translateX(-50%) rotate(180deg) rotateZ(0deg)';
-                runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                cancelAnimationFrame(animationId);
-                determineWinner();
+            // ─── Fountain effect ──────────────────────────────────────
+            function startFountain() {
+                for (const p of fountainParticles) {
+                    if (p.el.parentNode) p.el.remove();
+                }
+                fountainParticles = [];
+                if (fountainAnimationId) cancelAnimationFrame(fountainAnimationId);
+
+                const count = 60;
+                const containerRect = document.documentElement.getBoundingClientRect();
+                const bottomY = containerRect.height - 20;
+                const centerX = containerRect.width / 2;
+
+                for (let i = 0; i < count; i++) {
+                    const el = document.createElement('div');
+                    el.className = 'fountain-emoji';
+                    el.textContent = CELEBRATION_EMOJIS[Math.floor(Math.random() * CELEBRATION_EMOJIS.length)];
+                    const size = 1.5 + Math.random() * 3;
+                    el.style.fontSize = size + 'rem';
+                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                    const speed = 12 + Math.random() * 16;
+                    const vx = Math.cos(angle) * speed * (0.3 + Math.random() * 0.7);
+                    const vy = -Math.sin(angle) * speed * (0.5 + Math.random() * 0.5);
+                    el.style.left = (centerX + (Math.random() - 0.5) * 120) + 'px';
+                    el.style.top = (bottomY - 10) + 'px';
+                    el.style.opacity = 1;
+                    el.style.transform = `rotate(${Math.random()*360}deg)`;
+                    emojiContainer.appendChild(el);
+                    fountainParticles.push({
+                        el: el,
+                        x: parseFloat(el.style.left),
+                        y: parseFloat(el.style.top),
+                        vx: vx,
+                        vy: vy,
+                        gravity: 0.35 + Math.random() * 0.3,
+                        rotation: parseFloat(el.style.transform.replace(/[^0-9.]/g, '')) || 0,
+                        rotSpeed: (Math.random() - 0.5) * 4,
+                        life: 1,
+                        decay: 0.005 + Math.random() * 0.008,
+                        size: size
+                    });
+                }
+
+                function animateFountain() {
+                    let alive = false;
+                    for (const p of fountainParticles) {
+                        p.x += p.vx;
+                        p.y += p.vy;
+                        p.vy += p.gravity;
+                        p.rotation += p.rotSpeed;
+                        p.life -= p.decay;
+                        p.el.style.left = p.x + 'px';
+                        p.el.style.top = p.y + 'px';
+                        p.el.style.transform = `rotate(${p.rotation}deg)`;
+                        p.el.style.opacity = Math.max(0, p.life);
+                        if (p.life > 0 && p.y < window.innerHeight + 50) alive = true;
+                        else if (p.life <= 0) {
+                            p.el.style.display = 'none';
+                        }
+                    }
+                    if (alive) {
+                        fountainAnimationId = requestAnimationFrame(animateFountain);
+                    } else {
+                        for (const p of fountainParticles) {
+                            if (p.el.parentNode) p.el.remove();
+                        }
+                        fountainParticles = [];
+                        fountainAnimationId = null;
+                        startNormalEmojis();
+                    }
+                }
+                fountainAnimationId = requestAnimationFrame(animateFountain);
             }
-        }
 
-        function determineWinner() {
-            const num = names.length;
-            if (num === 0) return;
-            const arc = (Math.PI * 2) / num;
-            let a = currentAngle % (Math.PI * 2);
-            if (a < 0) a += Math.PI * 2;
-            const rel = (Math.PI * 2 - a) % (Math.PI * 2);
-            const idx = Math.floor(rel / arc) % num;
-            const winner = names[idx] || names[0];
-            showModal(winner);
-        }
-
-        // ─── Modal ──────────────────────────────────────────────
-        function showModal(winner) {
-            winnerNameEl.textContent = winner;
-            resultModal.classList.remove('hidden');
-        }
-
-        function hideModal() {
-            resultModal.classList.add('hidden');
-        }
-
-        // ─── Page transitions ────────────────────────────────────
-        function goToWheel() {
-            const raw = namesInput.value;
-            const parsed = raw.split('\n')
-                .map(s => s.trim())
-                .filter(s => s.length > 0);
-
-            if (parsed.length < 2) {
-                errorBox.classList.remove('hidden');
-                namesInput.classList.add('shake');
-                setTimeout(() => namesInput.classList.remove('shake'), 500);
-                return;
+            // ─── Pointer flashing ──────────────────────────────────────
+            function startPointerFlashing() {
+                if (pointerInterval) clearInterval(pointerInterval);
+                pointer.classList.add('flashing');
+                const colors = ['#8B5A2B', '#FF6B00', '#FFD700', '#FF4500', '#FFA500'];
+                let idx = 0;
+                pointerInterval = setInterval(() => {
+                    idx = (idx + 1) % colors.length;
+                    pointer.style.color = colors[idx];
+                }, 150);
             }
-            errorBox.classList.add('hidden');
-            names = parsed;
-            currentAngle = 0;
 
-            pageInput.classList.remove('page-visible');
-            pageInput.classList.add('page-hidden');
-            pageWheel.classList.remove('page-hidden');
-            pageWheel.classList.add('page-visible');
+            function stopPointerFlashing() {
+                if (pointerInterval) {
+                    clearInterval(pointerInterval);
+                    pointerInterval = null;
+                }
+                pointer.classList.remove('flashing');
+                pointer.style.color = '#8B5A2B';
+            }
+
+            // ─── Pointer wiggle ──────────────────────────────────────
+            let wiggleTime = 0;
+            function updatePointerWiggle(angle) {
+                wiggleTime += 0.12;
+                const wiggle = 2.5 * Math.sin(wiggleTime);
+                const speedFactor = Math.min(spinVelocity * 8, 6);
+                const tilt = speedFactor * Math.sin(wiggleTime * 0.7);
+                const totalRot = wiggle + tilt;
+                pointer.style.transform = `translateX(-50%) rotate(${totalRot}deg)`;
+            }
+
+            // ─── Line numbers ──────────────────────────────────────────
+            function updateLineNumbers() {
+                const lines = namesInput.value.split('\n');
+                const count = lines.length;
+                const nums = Array.from({ length: count }, (_, i) => i + 1).join('\n');
+                lineNumbers.textContent = nums;
+                lineNumbers.scrollTop = namesInput.scrollTop;
+            }
+
+            namesInput.addEventListener('scroll', () => { lineNumbers.scrollTop = namesInput.scrollTop; });
+            
+            namesInput.addEventListener('input', () => { 
+                updateLineNumbers(); 
+                checkLargeListWarning();
+            });
+            
+            window.addEventListener('resize', updateLineNumbers);
+            updateLineNumbers();
+
+            // ─── ResizeObserver for canvas ────────────────────────────
+            const container = canvas.parentElement;
+            function resizeCanvas() {
+                const rect = container.getBoundingClientRect();
+                const size = Math.floor(rect.width * (window.devicePixelRatio || 1));
+                if (size > 0 && size !== canvasSize) {
+                    canvasSize = size;
+                    canvas.width = size;
+                    canvas.height = size;
+                    drawWheel(currentAngle);
+                } else if (size === 0) {
+                    const fallback = 400;
+                    canvasSize = fallback;
+                    canvas.width = fallback;
+                    canvas.height = fallback;
+                    drawWheel(currentAngle);
+                }
+            }
+
+            const ro = new ResizeObserver(() => { resizeCanvas(); });
+            ro.observe(container);
+            window.addEventListener('resize', resizeCanvas);
             requestAnimationFrame(resizeCanvas);
-            drawWheel(0);
-        }
 
-        function goToInput() {
-            if (isSpinning) return;
-            pageWheel.classList.remove('page-visible');
-            pageWheel.classList.add('page-hidden');
-            pageInput.classList.remove('page-hidden');
-            pageInput.classList.add('page-visible');
-        }
-
-        // ─── File upload ──────────────────────────────────────────
-        function parseFileContent(text) {
-            const lines = text.split('\n').filter(s => s.trim().length > 0);
-            if (lines.length === 0) return [];
-
-            let delimCounts = { ',': 0, ';': 0, '\t': 0, ' ': 0, '|': 0 };
-            let totalLines = 0;
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed === '') continue;
-                totalLines++;
-                for (const d of Object.keys(delimCounts)) {
-                    const count = (trimmed.match(new RegExp(d, 'g')) || []).length;
-                    if (count > 0) delimCounts[d] += count;
-                }
+            // ─── Color generator ──────────────────────────────────────
+            function getColor(index, total) {
+                const hue = (index * (360 / total)) % 360;
+                return `hsl(${hue}, 80%, 60%)`;
             }
 
-            let bestDelim = null;
-            let bestCount = 0;
-            for (const [d, count] of Object.entries(delimCounts)) {
-                if (count > bestCount && count > 0) {
-                    bestCount = count;
-                    bestDelim = d;
-                }
-            }
-
-            if (!bestDelim) {
-                return lines.map(s => s.trim()).filter(s => s.length > 0);
-            }
-
-            const result = [];
-            for (const line of lines) {
-                const parts = line.split(bestDelim).map(s => s.trim()).filter(s => s.length > 0);
-                for (const p of parts) {
-                    if (p.length > 0) result.push(p);
-                }
-            }
-            return result;
-        }
-
-        function handleFile(file) {
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (ext !== 'csv' && ext !== 'txt') {
-                alert('Unsupported file type. Please upload a .csv or .txt file.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const content = e.target.result;
-                const parsed = parseFileContent(content);
-                if (parsed.length === 0) {
-                    alert('No names found in the file. Please check the format.');
+            // ─── Draw wheel ──────────────────────────────────────────
+            function drawWheel(angle) {
+                const w = canvas.width;
+                const h = canvas.height;
+                if (!w || !h) return;
+                const rad = Math.min(w, h) / 2 - 4;
+                const cx = w / 2;
+                const cy = h / 2;
+                const num = names.length;
+                if (num === 0) {
+                    ctx.clearRect(0, 0, w, h);
                     return;
                 }
-                namesInput.value = parsed.join('\n');
-                updateLineNumbers();
-                fileName.textContent = file.name;
-                fileBadge.classList.remove('hidden');
-                errorBox.classList.add('hidden');
-                const raw = namesInput.value;
-                const lines = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-                if (lines.length >= 2) {
-                    errorBox.classList.add('hidden');
+
+                ctx.clearRect(0, 0, w, h);
+                const arc = (Math.PI * 2) / num;
+
+                for (let i = 0; i < num; i++) {
+                    const start = angle + i * arc - Math.PI / 2;
+                    const end = angle + (i + 1) * arc - Math.PI / 2;
+
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.arc(cx, cy, rad, start, end);
+                    ctx.closePath();
+
+                    ctx.fillStyle = getColor(i, num);
+                    ctx.fill();
+
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+                    ctx.stroke();
+
+                    // Adaptive text rendering for all list sizes
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(start + arc / 2);
+
+                    let fontSize, fontWeight, shadowBlur;
+                    if (num > 150) {
+                        fontSize = Math.max(7, Math.min(12, (rad * arc) / 2.5));
+                        fontWeight = 'normal';
+                        shadowBlur = 2;
+                    } else if (num > 80) {
+                        fontSize = Math.max(8, Math.min(16, (rad * arc) / 2.5));
+                        fontWeight = '600';
+                        shadowBlur = 4;
+                    } else {
+                        fontSize = Math.max(10, Math.min(24, (rad * arc) / 2.4));
+                        fontWeight = 'bold';
+                        shadowBlur = 6;
+                    }
+
+                    ctx.font = `${fontWeight} ${fontSize}px Inter, "Segoe UI", sans-serif`;
+                    ctx.textAlign = 'right';
+                    ctx.textBaseline = 'middle';
+                    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+                    ctx.shadowBlur = shadowBlur;
+                    ctx.shadowOffsetX = 1;
+                    ctx.shadowOffsetY = 1;
+                    ctx.fillStyle = '#fff';
+
+                    let label = names[i];
+                    const maxW = rad - 20;
+                    if (ctx.measureText(label).width > maxW) {
+                        while (ctx.measureText(label + '…').width > maxW && label.length > 1) {
+                            label = label.slice(0, -1);
+                        }
+                        label += '…';
+                    }
+                    ctx.fillText(label, rad - 10, 0);
+                    ctx.restore();
                 }
-            };
-            reader.onerror = () => {
-                alert('Error reading file.');
-            };
-            reader.readAsText(file);
-        }
 
-        uploadBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            if (fileInput.files.length > 0) {
-                handleFile(fileInput.files[0]);
+                ctx.beginPath();
+                ctx.arc(cx, cy, rad * 0.06, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fill();
             }
-            fileInput.value = '';
-        });
 
-        removeFile.addEventListener('click', () => {
-            fileBadge.classList.add('hidden');
-        });
+            // ─── Hover tooltip ──────────────────────────────────────
+            function getSliceIndexFromMouse(e) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const mouseX = (e.clientX - rect.left) * scaleX;
+                const mouseY = (e.clientY - rect.top) * scaleY;
+                const cx = canvas.width / 2;
+                const cy = canvas.height / 2;
+                const dx = mouseX - cx;
+                const dy = mouseY - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const radius = Math.min(canvas.width, canvas.height) / 2 - 4;
+                if (dist < radius * 0.08 || dist > radius) return -1;
 
-        // ─── Drag and drop ──────────────────────────────────────
-        let dragCounter = 0;
+                let screenAngle = Math.atan2(dy, dx);
+                if (screenAngle < 0) screenAngle += Math.PI * 2;
 
-        inputArea.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dragCounter++;
-            if (dragCounter === 1) {
-                inputArea.classList.add('drag-over');
+                let localAngle = screenAngle - currentAngle;
+                localAngle = ((localAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+                const num = names.length;
+                const arc = (Math.PI * 2) / num;
+                let idx = Math.floor((localAngle + Math.PI / 2) / arc);
+                idx = ((idx % num) + num) % num;
+                return idx;
             }
-        });
 
-        inputArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            inputArea.classList.add('drag-over');
-        });
+            canvas.addEventListener('mousemove', (e) => {
+                if (isSpinning || names.length === 0) {
+                    tooltip.style.display = 'none';
+                    return;
+                }
+                const idx = getSliceIndexFromMouse(e);
+                if (idx >= 0 && idx < names.length) {
+                    const name = names[idx];
+                    tooltip.textContent = name;
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 14) + 'px';
+                    tooltip.style.top = (e.clientY) + 'px';
+                    const rect = tooltip.getBoundingClientRect();
+                    if (rect.right > window.innerWidth) {
+                        tooltip.style.left = (e.clientX - rect.width - 14) + 'px';
+                    }
+                    if (rect.bottom > window.innerHeight) {
+                        tooltip.style.top = (e.clientY - rect.height / 2) + 'px';
+                    }
+                } else {
+                    tooltip.style.display = 'none';
+                }
+            });
 
-        inputArea.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dragCounter--;
-            if (dragCounter === 0) {
-                inputArea.classList.remove('drag-over');
+            canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+            // ─── Spin logic ──────────────────────────────────────────
+            function getCurrentPointerIndex() {
+                const num = names.length;
+                if (num === 0) return -1;
+                const arc = (Math.PI * 2) / num;
+                let a = currentAngle % (Math.PI * 2);
+                if (a < 0) a += Math.PI * 2;
+                const rel = (Math.PI * 2 - a) % (Math.PI * 2);
+                return Math.floor(rel / arc) % num;
             }
-        });
 
-        inputArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dragCounter = 0;
-            inputArea.classList.remove('drag-over');
+            function startSpin() {
+                if (isSpinning || names.length < 2) return;
+                isSpinning = true;
+                runBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                backBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                tooltip.style.display = 'none';
+                wiggleTime = 0;
 
-            const files = e.dataTransfer.files;
-            if (files.length === 0) return;
-            const file = files[0];
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (ext !== 'csv' && ext !== 'txt') {
-                alert('Unsupported file type. Please drop a .csv or .txt file.');
-                return;
+                startRain();
+                startPointerFlashing();
+
+                spinVelocity = 0.6 + Math.random() * 0.4;
+                const friction = 0.975 + Math.random() * 0.008;
+                animateSpin(friction);
             }
-            handleFile(file);
-        });
 
-        // ─── Event listeners ────────────────────────────────────
-        executeBtn.addEventListener('click', goToWheel);
+            function animateSpin(friction) {
+                currentAngle += spinVelocity;
+                spinVelocity *= friction;
 
-        backBtn.addEventListener('click', goToInput);
+                drawWheel(currentAngle);
+                updatePointerWiggle(currentAngle);
 
-        runBtn.addEventListener('click', startSpin);
+                // Update center name display during spin
+                if (isSpinning) {
+                    const idx = getCurrentPointerIndex();
+                    if (idx >= 0 && idx < names.length) {
+                        centerNameDisplay.textContent = names[idx];
+                        centerNameDisplay.classList.remove('hidden');
+                    }
+                }
 
-        closeModalBtn.addEventListener('click', hideModal);
+                if (spinVelocity > 0.002) {
+                    animationId = requestAnimationFrame(() => animateSpin(friction));
+                } else {
+                    isSpinning = false;
+                    spinVelocity = 0;
+                    pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+                    runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    cancelAnimationFrame(animationId);
 
-        resultModal.addEventListener('click', (e) => {
-            if (e.target === resultModal) hideModal();
-        });
+                    // Hide center name display when stopped
+                    centerNameDisplay.classList.add('hidden');
 
-        namesInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                executeBtn.click();
+                    stopRain();
+                    stopPointerFlashing();
+                    determineWinner();
+                    startFountain();
+                }
             }
-        });
 
-        // ─── Pre‑fill sample with placeholder only ──────────────
-        namesInput.value = '';
-        updateLineNumbers();
+            function determineWinner() {
+                const idx = getCurrentPointerIndex();
+                if (idx >= 0 && idx < names.length) {
+                    showModal(names[idx]);
+                }
+            }
 
-        // ─── Expose for debugging ──────────────────────────────
-        window.__wheel = { drawWheel, startSpin, names, currentAngle };
+            // ─── Modals ──────────────────────────────────────────────
+            function showModal(winner) {
+                winnerNameEl.textContent = winner;
+                resultModal.classList.remove('hidden');
+            }
+            function hideModal() { resultModal.classList.add('hidden'); }
 
-        console.log('🎡 GITD Wheel of Luck ready!');
-    })();
-</script>
+            // ─── Page transitions ────────────────────────────────────
+            function goToWheel() {
+                const raw = namesInput.value;
+                const parsed = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
 
+                if (parsed.length < 2) {
+                    errorBox.classList.remove('hidden');
+                    namesInput.classList.add('shake');
+                    setTimeout(() => namesInput.classList.remove('shake'), 500);
+                    return;
+                }
+                errorBox.classList.add('hidden');
+
+                names = parsed;
+                currentAngle = 0;
+                navigateToWheel();
+            }
+
+            function navigateToWheel() {
+                pageInput.classList.remove('page-visible');
+                pageInput.classList.add('page-hidden');
+                pageWheel.classList.remove('page-hidden');
+                pageWheel.classList.add('page-visible');
+                startNormalEmojis();
+                requestAnimationFrame(resizeCanvas);
+                drawWheel(0);
+                pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+            }
+
+            function goToInput() {
+                if (isSpinning) return;
+                pageWheel.classList.remove('page-visible');
+                pageWheel.classList.add('page-hidden');
+                pageInput.classList.remove('page-hidden');
+                pageInput.classList.add('page-visible');
+                stopNormalEmojis();
+                stopRain();
+                stopPointerFlashing();
+                clearAllEmojis();
+                startNormalEmojis();
+            }
+
+            // ─── Large List Warning Check ────────────────────────────
+            function checkLargeListWarning() {
+                const raw = namesInput.value;
+                const parsed = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+                if (parsed.length > 80) {
+                    largeListWarning.classList.remove('hidden');
+                } else {
+                    largeListWarning.classList.add('hidden');
+                }
+            }
+
+            // ─── File upload ──────────────────────────────────────────
+            function parseFileContent(text) {
+                const lines = text.split('\n').filter(s => s.trim().length > 0);
+                if (lines.length === 0) return [];
+
+                let delimCounts = { ',': 0, ';': 0, '\t': 0, ' ': 0, '|': 0 };
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed === '') continue;
+                    for (const d of Object.keys(delimCounts)) {
+                        const count = (trimmed.match(new RegExp(d, 'g')) || []).length;
+                        if (count > 0) delimCounts[d] += count;
+                    }
+                }
+
+                let bestDelim = null;
+                let bestCount = 0;
+                for (const [d, count] of Object.entries(delimCounts)) {
+                    if (count > bestCount && count > 0) {
+                        bestCount = count;
+                        bestDelim = d;
+                    }
+                }
+
+                if (!bestDelim) {
+                    return lines.map(s => s.trim()).filter(s => s.length > 0);
+                }
+
+                const result = [];
+                for (const line of lines) {
+                    const parts = line.split(bestDelim).map(s => s.trim()).filter(s => s.length > 0);
+                    for (const p of parts) {
+                        if (p.length > 0) result.push(p);
+                    }
+                }
+                return result;
+            }
+
+            function handleFile(file) {
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext !== 'csv' && ext !== 'txt') {
+                    alert('Unsupported file type. Please upload a .csv or .txt file.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target.result;
+                    const parsed = parseFileContent(content);
+                    if (parsed.length === 0) {
+                        alert('No names found in the file. Please check the format.');
+                        return;
+                    }
+                    namesInput.value = parsed.join('\n');
+                    updateLineNumbers();
+                    checkLargeListWarning();
+                    fileName.textContent = file.name;
+                    fileBadge.classList.remove('hidden');
+                    errorBox.classList.add('hidden');
+                };
+                reader.onerror = () => { alert('Error reading file.'); };
+                reader.readAsText(file);
+            }
+
+            uploadBtn.addEventListener('click', () => { fileInput.click(); });
+            fileInput.addEventListener('change', (e) => {
+                if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+                fileInput.value = '';
+            });
+            removeFile.addEventListener('click', () => { fileBadge.classList.add('hidden'); });
+
+            // ─── Drag and drop ──────────────────────────────────────
+            let dragCounter = 0;
+            inputWrapper.addEventListener('dragenter', (e) => {
+                e.preventDefault(); e.stopPropagation(); dragCounter++;
+                if (dragCounter === 1) inputWrapper.classList.add('drag-over');
+            });
+            inputWrapper.addEventListener('dragover', (e) => {
+                e.preventDefault(); e.stopPropagation(); inputWrapper.classList.add('drag-over');
+            });
+            inputWrapper.addEventListener('dragleave', (e) => {
+                e.preventDefault(); e.stopPropagation(); dragCounter--;
+                if (dragCounter === 0) inputWrapper.classList.remove('drag-over');
+            });
+            inputWrapper.addEventListener('drop', (e) => {
+                e.preventDefault(); e.stopPropagation(); dragCounter = 0;
+                inputWrapper.classList.remove('drag-over');
+                const files = e.dataTransfer.files;
+                if (files.length === 0) return;
+                const file = files[0];
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext !== 'csv' && ext !== 'txt') {
+                    alert('Unsupported file type. Please drop a .csv or .txt file.');
+                    return;
+                }
+                handleFile(file);
+            });
+
+            // ─── Event listeners ────────────────────────────────────
+            executeBtn.addEventListener('click', goToWheel);
+            backBtn.addEventListener('click', goToInput);
+            runBtn.addEventListener('click', startSpin);
+            closeModalBtn.addEventListener('click', hideModal);
+            resultModal.addEventListener('click', (e) => { if (e.target === resultModal) hideModal(); });
+            namesInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    executeBtn.click();
+                }
+            });
+
+            // ─── Initialize ──────────────────────────────────────────
+            namesInput.value = '';
+            updateLineNumbers();
+            checkLargeListWarning();
+            startNormalEmojis();
+
+            window.__wheel = { drawWheel, startSpin, names, currentAngle };
+            console.log('🎡 GITD Wheel of Luck ready!');
+        })();
+    </script>
 </body>
 </html>
