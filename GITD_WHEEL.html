@@ -10,7 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <style>
-        /* ── reset & base ── */
+        /* ─ reset & base ── */
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
             font-family: 'Inter', sans-serif;
@@ -72,7 +72,7 @@
             border: 1px solid rgba(255, 255, 255, 0.5);
         }
 
-        /* ── wheel container ── */
+        /* ─ wheel container ── */
         .wheel-container {
             position: relative;
             width: min(90vw, 85vh, 800px);
@@ -91,32 +91,35 @@
             cursor: default;
         }
 
-        /* ── pointer ── */
+        /* ── pointer with image ── */
         .pointer {
             position: absolute;
-            top: -16px;
+            top: -2%;
             left: 50%;
-            transform: translateX(-50%) rotate(0deg);
+            transform-origin: top center;
             z-index: 20;
-            font-size: 4.5rem;
-            line-height: 1;
-            text-align: center;
-            color: #8B5A2B;
-            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-            transition: transform 0.05s ease-out;
-            pointer-events: none;
-            font-family: 'Segoe UI', 'Arial Unicode MS', sans-serif;
-            width: 1.4em;
-            height: 1.4em;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             will-change: transform;
-            font-weight: 700;
+            /* Responsive sizing: 7.2% of wheel width (60% smaller than 18%) */
+            width: 7.2%;
+            height: auto;
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
+            transition: filter 0.3s ease;
+            cursor: pointer;
         }
-        .pointer.flashing { animation: none; }
+        
+        .pointer img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform-origin: top center;
+        }
+        
+        .pointer.flashing {
+            animation: none;
+            filter: drop-shadow(0 8px 16px rgba(255, 215, 0, 0.6)) brightness(1.2);
+        }
 
-        /* ── center hub ── */
+        /* ── center hub ─ */
         .hub {
             position: absolute;
             top: 50%;
@@ -173,7 +176,7 @@
             transform: translate(-50%, -50%) scale(1);
         }
 
-        /* ── hover tooltip ── */
+        /* ── hover tooltip ─ */
         .wheel-tooltip {
             position: fixed;
             pointer-events: none;
@@ -246,7 +249,7 @@
             transform: scale(1);
         }
 
-        /* ── input with line numbers ── */
+        /* ── input with line numbers ─ */
         .input-wrapper {
             display: flex;
             border-radius: 0.75rem;
@@ -375,7 +378,10 @@
         }
 
         @media (max-width: 640px) {
-            .pointer { font-size: 3.2rem; top: -10px; }
+            .pointer {
+                top: -1.5%;
+                width: 8.8%;
+            }
             .line-numbers { font-size: 0.7rem; padding: 10px 4px 10px 8px; min-width: 30px; }
             .input-textarea { font-size: 0.8rem; padding: 10px 10px; min-height: 160px; max-height: 50vh; }
             .input-wrapper { max-height: 55vh; }
@@ -383,7 +389,10 @@
             .wheel-container { width: min(92vw, 80vh); }
         }
         @media (min-width: 1024px) {
-            .pointer { font-size: 6rem; top: -22px; }
+            .pointer {
+                top: -2.5%;
+                width: 6%;
+            }
             .wheel-container { width: min(88vw, 85vh, 800px); }
         }
     </style>
@@ -453,7 +462,10 @@
         </h2>
 
         <div class="wheel-container">
-            <div class="pointer" id="pointer">▼</div>
+            <!-- Pointer with image -->
+            <div class="pointer" id="pointer">
+                <img src="pointer.png" alt="Pointer" id="pointerImg" />
+            </div>
             <canvas id="wheelCanvas"></canvas>
             <div class="hub"></div>
             <!-- Center Name Display (Rectangular Oval) -->
@@ -509,6 +521,7 @@
             const canvas = document.getElementById('wheelCanvas');
             const ctx = canvas.getContext('2d');
             const pointer = document.getElementById('pointer');
+            const pointerImg = document.getElementById('pointerImg');
             const resultModal = document.getElementById('resultModal');
             const winnerNameEl = document.getElementById('winnerName');
             const closeModalBtn = document.getElementById('closeModalBtn');
@@ -528,16 +541,30 @@
             let spinVelocity = 0;
             let animationId = null;
             let canvasSize = 0;
+            
+            // Physics-based pointer movement state
+            let mouseX = 0;
+            let mouseY = 0;
+            let pointerRotation = 0;
+            let pointerVelocityX = 0;
+            let pointerVelocityY = 0;
+            let isPointerHovered = false;
+            const pointerPhysics = {
+                damping: 0.92,
+                sensitivity: 0.03,
+                maxRotation: 20,
+                springStrength: 0.08
+            };
 
-            // ─── Emoji effects state ──────────────────────────────────
+            // ── Emoji effects state ──────────────────────────────────
             let normalEmojiInterval = null;
             let pointerInterval = null;
             let rainAnimationId = null;
             let fountainAnimationId = null;
             let rainParticles = [];
             let fountainParticles = [];
-            const NERVOUS_EMOJIS = ['😳', '🥶', '🤔', '🫣', '🫨', '🤨', '😐'];
-            const CELEBRATION_EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🥳', '💰'];
+            const NERVOUS_EMOJIS = ['😳', '🥶', '', '🫣', '🫨', '🤨', '😐'];
+            const CELEBRATION_EMOJIS = ['', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '', '💰'];
 
             // ─── Normal floating emojis ──────────────────────────────
             function spawnNormalEmoji() {
@@ -715,12 +742,6 @@
             function startPointerFlashing() {
                 if (pointerInterval) clearInterval(pointerInterval);
                 pointer.classList.add('flashing');
-                const colors = ['#8B5A2B', '#FF6B00', '#FFD700', '#FF4500', '#FFA500'];
-                let idx = 0;
-                pointerInterval = setInterval(() => {
-                    idx = (idx + 1) % colors.length;
-                    pointer.style.color = colors[idx];
-                }, 150);
             }
 
             function stopPointerFlashing() {
@@ -729,10 +750,72 @@
                     pointerInterval = null;
                 }
                 pointer.classList.remove('flashing');
-                pointer.style.color = '#8B5A2B';
             }
 
-            // ─── Pointer wiggle ──────────────────────────────────────
+            // ─── Physics-based pointer movement ───────────────────────
+            function updatePointerPhysics() {
+                if (!isSpinning && isPointerHovered) {
+                    // Calculate distance from pointer center to mouse
+                    const pointerRect = pointer.getBoundingClientRect();
+                    const pointerCenterX = pointerRect.left + pointerRect.width / 2;
+                    const pointerCenterY = pointerRect.top + pointerRect.height / 2;
+                    
+                    const dx = mouseX - pointerCenterX;
+                    const dy = mouseY - pointerCenterY;
+                    
+                    // Apply spring force based on mouse distance
+                    const targetRotation = dx * pointerPhysics.sensitivity;
+                    const clampedRotation = Math.max(-pointerPhysics.maxRotation, 
+                                           Math.min(pointerPhysics.maxRotation, targetRotation));
+                    
+                    // Spring physics
+                    const acceleration = (clampedRotation - pointerRotation) * pointerPhysics.springStrength;
+                    pointerVelocityX += acceleration;
+                    pointerVelocityX *= pointerPhysics.damping;
+                    
+                    pointerRotation += pointerVelocityX;
+                    
+                    // Add slight vertical sway based on Y distance
+                    const verticalSway = dy * 0.01;
+                    pointerVelocityY += (verticalSway - pointerVelocityY) * 0.05;
+                    pointerVelocityY *= pointerPhysics.damping;
+                    
+                    // Apply transform with both rotation and slight scale for depth
+                    const scale = 1 + (pointerVelocityY * 0.02);
+                    pointer.style.transform = `translateX(-50%) rotate(${pointerRotation}deg) scale(${scale})`;
+                } else if (!isSpinning && !isPointerHovered) {
+                    // Smoothly return to neutral position when not hovering
+                    const targetRotation = 0;
+                    const acceleration = (targetRotation - pointerRotation) * pointerPhysics.springStrength;
+                    pointerVelocityX += acceleration;
+                    pointerVelocityX *= pointerPhysics.damping;
+                    pointerRotation += pointerVelocityX;
+                    
+                    pointerVelocityY *= pointerPhysics.damping;
+                    const scale = 1 + (pointerVelocityY * 0.02);
+                    
+                    pointer.style.transform = `translateX(-50%) rotate(${pointerRotation}deg) scale(${scale})`;
+                }
+                
+                requestAnimationFrame(updatePointerPhysics);
+            }
+
+            // Track mouse movement
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            // Pointer hover detection
+            pointer.addEventListener('mouseenter', () => {
+                isPointerHovered = true;
+            });
+
+            pointer.addEventListener('mouseleave', () => {
+                isPointerHovered = false;
+            });
+
+            // ─── Pointer wiggle during spin ──────────────────────────
             let wiggleTime = 0;
             function updatePointerWiggle(angle) {
                 wiggleTime += 0.12;
@@ -743,7 +826,7 @@
                 pointer.style.transform = `translateX(-50%) rotate(${totalRot}deg)`;
             }
 
-            // ─── Line numbers ──────────────────────────────────────────
+            // ─── Line numbers ─────────────────────────────────────────
             function updateLineNumbers() {
                 const lines = namesInput.value.split('\n');
                 const count = lines.length;
@@ -786,7 +869,7 @@
             window.addEventListener('resize', resizeCanvas);
             requestAnimationFrame(resizeCanvas);
 
-            // ─── Color generator ──────────────────────────────────────
+            // ── Color generator ──────────────────────────────────────
             function getColor(index, total) {
                 const hue = (index * (360 / total)) % 360;
                 return `hsl(${hue}, 80%, 60%)`;
@@ -926,7 +1009,7 @@
 
             canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
-            // ─── Spin logic ──────────────────────────────────────────
+            // ─── Spin logic ─────────────────────────────────────────
             function getCurrentPointerIndex() {
                 const num = names.length;
                 if (num === 0) return -1;
@@ -944,6 +1027,12 @@
                 backBtn.classList.add('opacity-50', 'cursor-not-allowed');
                 tooltip.style.display = 'none';
                 wiggleTime = 0;
+                
+                // Reset pointer physics
+                pointerRotation = 0;
+                pointerVelocityX = 0;
+                pointerVelocityY = 0;
+                isPointerHovered = false;
 
                 startRain();
                 startPointerFlashing();
@@ -974,7 +1063,13 @@
                 } else {
                     isSpinning = false;
                     spinVelocity = 0;
+                    
+                    // Reset pointer to neutral with smooth transition
                     pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+                    pointerRotation = 0;
+                    pointerVelocityX = 0;
+                    pointerVelocityY = 0;
+                    
                     runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     cancelAnimationFrame(animationId);
@@ -996,7 +1091,7 @@
                 }
             }
 
-            // ─── Modals ──────────────────────────────────────────────
+            // ─── Modals ─────────────────────────────────────────────
             function showModal(winner) {
                 winnerNameEl.textContent = winner;
                 resultModal.classList.remove('hidden');
@@ -1030,6 +1125,8 @@
                 requestAnimationFrame(resizeCanvas);
                 drawWheel(0);
                 pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+                // Start physics animation loop
+                updatePointerPhysics();
             }
 
             function goToInput() {
@@ -1045,7 +1142,7 @@
                 startNormalEmojis();
             }
 
-            // ─── Large List Warning Check ────────────────────────────
+            // ── Large List Warning Check ────────────────────────────
             function checkLargeListWarning() {
                 const raw = namesInput.value;
                 const parsed = raw.split('\n').map(s => s.trim()).filter(s => s.length > 0);
@@ -1056,7 +1153,7 @@
                 }
             }
 
-            // ─── File upload ──────────────────────────────────────────
+            // ─── File upload ─────────────────────────────────────────
             function parseFileContent(text) {
                 const lines = text.split('\n').filter(s => s.trim().length > 0);
                 if (lines.length === 0) return [];
@@ -1127,7 +1224,7 @@
             });
             removeFile.addEventListener('click', () => { fileBadge.classList.add('hidden'); });
 
-            // ─── Drag and drop ──────────────────────────────────────
+            // ─── Drag and drop ─────────────────────────────────────
             let dragCounter = 0;
             inputWrapper.addEventListener('dragenter', (e) => {
                 e.preventDefault(); e.stopPropagation(); dragCounter++;
