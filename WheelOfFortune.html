@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Cabutan Bertuah Hari Merdeka - Kempen Bonanza Memenuhi Impian 2026</title>
+<title>Cabutan Bertuah Merdeka - Kempen Bonanza Memenuhi Impian 2026</title>
   <!-- Akhyar was here (^_^)v  -->
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/2617/2617484.png">
@@ -10,7 +10,7 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400&family=Huninn&display=swap" rel="stylesheet">
   
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -22,12 +22,14 @@
     background: linear-gradient(to bottom, #007BFF 0%, #D9EBFF 100%);
     background-attachment: fixed;
     color: #0b2545;
+    overflow-x: hidden;
   }
   body {
-    padding: 24px;
+    padding: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
+    overflow-y: auto;
   }
 
   /* Background Emoji Animation */
@@ -38,18 +40,18 @@
     100% { opacity: 0; transform: scale(0.5) translateY(-30px) rotate(0deg); }
   }
 
-  /* Page Title - Two lines, upper left corner */
+  /* Page Title - Centered, one line */
   .page-title {
-    position: fixed;
-    top: 24px;
-    left: 24px;
+    width: 100%;
+    text-align: center;
+    padding: 18px 20px 10px 20px;
     z-index: 50;
-    text-align: left;
-    max-width: 85vw;
+    position: relative;
+    flex-shrink: 0;
   }
   .page-title h1 {
     font-family: 'Huninn', 'Segoe UI', Tahoma, sans-serif;
-    font-size: 28px;
+    font-size: clamp(20px, 3vw, 36px);
     font-weight: bold;
     text-transform: capitalize;
     color: #ffffff;
@@ -57,9 +59,7 @@
     letter-spacing: 1px;
     margin: 0;
     line-height: 1.2;
-  }
-  .page-title h1 + h1 {
-    margin-top: 6px;
+    display: inline-block;
   }
 
   .card {
@@ -71,7 +71,8 @@
     max-width: 620px;
     position: relative;
     z-index: 1;
-    margin-top: 20px;
+    margin: 10px 20px 20px 20px;
+    flex-shrink: 0;
   }
   .note {
     font-size: 14px;
@@ -197,7 +198,7 @@
   .btn:hover { background: #ff9800; transform: translateY(-2px); }
   .btn:active { transform: translateY(0); }
 
-  /* Wheel screen - full page layout */
+  /* Wheel screen - fills remaining space */
   #wheelScreen {
     display: none;
     width: 100%;
@@ -207,6 +208,8 @@
     justify-content: center;
     position: relative;
     z-index: 1;
+    padding: 10px 20px 20px 20px;
+    min-height: 0;
   }
   #wheelScreen.active {
     display: flex;
@@ -219,13 +222,16 @@
     width: 100%;
     flex: 1;
     justify-content: center;
+    min-height: 0;
   }
   .wheel-container {
     position: relative;
-    width: min(85vw, 80vh);
-    height: min(85vw, 80vh);
-    max-width: 1200px;
-    max-height: 1200px;
+    /* Dynamic: fill max available space without scrolling */
+    width: min(80vw, calc(100vh - 160px));
+    height: min(80vw, calc(100vh - 160px));
+    max-width: 1400px;
+    max-height: 1400px;
+    flex-shrink: 1;
   }
   canvas {
     width: 100%;
@@ -324,6 +330,64 @@
     display: none;
     white-space: nowrap;
     font-weight: 600;
+  }
+
+  /* Selected Winners Box - upper right corner */
+  .winners-box {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ffffff;
+    border: 3px solid #007BFF;
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-width: 220px;
+    max-width: 320px;
+    max-height: 60vh;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    z-index: 40;
+    display: none;
+    flex-direction: column;
+  }
+  .winners-box.visible {
+    display: flex;
+  }
+  .winners-box h3 {
+    color: #007BFF;
+    font-size: 18px;
+    margin-bottom: 10px;
+    text-align: center;
+    border-bottom: 2px solid #e0e8f0;
+    padding-bottom: 8px;
+  }
+  .winners-list {
+    list-style-type: disc;
+    padding-left: 22px;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .winners-list li {
+    font-size: 15px;
+    color: #0b2545;
+    padding: 3px 0;
+    font-weight: 500;
+  }
+
+  /* Flying name animation element */
+  .flying-name {
+    position: fixed;
+    background: #d9534f;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 200;
+    pointer-events: none;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
   }
 
   /* Bottom Left Back Link */
@@ -457,16 +521,17 @@
   .hidden-input { display: none; }
 
   @media (max-width: 900px) {
-    .page-title h1 { font-size: 22px; }
     .pointer-box { right: -170px; min-width: 140px; font-size: 15px; max-width: 160px; padding: 8px 12px; }
     .spin-center { width: 80px; height: 80px; font-size: 16px; }
     #winnerModal .modal { min-width: 360px; padding: 30px 36px; }
     #winnerModal .modal h2 { font-size: 28px; }
     #winnerModal .modal p#winnerMsg { font-size: 28px !important; }
     #winnerModal .close-x-btn { width: 40px; height: 40px; font-size: 22px; }
+    .winners-box { top: 10px; right: 10px; min-width: 180px; padding: 12px 14px; }
+    .winners-box h3 { font-size: 15px; }
+    .winners-list li { font-size: 13px; }
   }
   @media (max-width: 600px) {
-    .page-title h1 { font-size: 18px; }
     .pointer-box { display: none; }
     .wheel-container { width: 90vw; height: 90vw; }
     #winnerModal .modal { min-width: 280px; padding: 24px 20px; }
@@ -475,14 +540,14 @@
     #winnerModal .modal .btn { min-width: 140px; font-size: 16px; padding: 12px 20px; }
     #winnerModal .close-x-btn { width: 36px; height: 36px; font-size: 20px; top: 12px; right: 12px; }
     .back-link { bottom: 20px; left: 20px; font-size: 16px; }
+    .winners-box { max-width: 200px; min-width: 150px; }
   }
 </style>
 </head>
 <body>
 
 <div class="page-title">
-  <h1>Cabutan Bertuah Merdeka</h1>
-  <h1>Kempen Bonanza Memenuhi Impian 2026</h1>
+  <h1>Cabutan Bertuah Merdeka - Kempen Bonanza Memenuhi Impian 2026</h1>
 </div>
 
 <!-- Input Screen -->
@@ -540,6 +605,12 @@
   </div>
 </div>
 
+<!-- Selected Winners Box -->
+<div class="winners-box" id="winnersBox">
+  <h3>Selected Winners</h3>
+  <ul class="winners-list" id="winnersList"></ul>
+</div>
+
 <!-- Bottom Left Back Link -->
 <a id="backLink" class="back-link">Back</a>
 
@@ -574,7 +645,8 @@ let spinning = false;
 let hoveredIndex = -1;
 let lastWinnerName = null;
 let lastWinnerIndex = -1;
-let spinActivated = false; // Controls pointer box visibility
+let spinActivated = false;
+let selectedWinners = []; // List of removed winners
 
 /* ---------- Elements ---------- */
 const inputScreen = document.getElementById('inputScreen');
@@ -603,6 +675,8 @@ const importXlsxBtn = document.getElementById('importXlsxBtn');
 const txtFileInput = document.getElementById('txtFileInput');
 const csvFileInput = document.getElementById('csvFileInput');
 const xlsxFileInput = document.getElementById('xlsxFileInput');
+const winnersBox = document.getElementById('winnersBox');
+const winnersList = document.getElementById('winnersList');
 
 /* ---------- Background Emojis ---------- */
 const emojiList = ['', '😆', '🥰', '😍', '🤩', '🥳', '☺️', '😎', '😉', '🫡', '😅', ''];
@@ -628,7 +702,6 @@ function spawnEmoji() {
   setTimeout(() => el.remove(), duration * 1000);
 }
 
-// Spawn emojis periodically
 setInterval(() => {
   const count = Math.floor(Math.random() * 3) + 1;
   for (let i = 0; i < count; i++) spawnEmoji();
@@ -639,7 +712,7 @@ function resizeCanvas() {
   const container = document.getElementById('wheelContainer');
   const rect = container.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
-  const size = Math.floor(rect.width);
+  const size = Math.floor(Math.min(rect.width, rect.height));
   canvas.width = size * dpr;
   canvas.height = size * dpr;
   canvas.style.width = size + 'px';
@@ -766,6 +839,60 @@ function removeNameFromTable(nameToRemove) {
 
 for (let i = 0; i < 3; i++) addRow('');
 
+/* ---------- Selected Winners management ---------- */
+function addWinnerToBox(name) {
+  if (!selectedWinners.includes(name)) {
+    selectedWinners.push(name);
+  }
+  winnersBox.classList.add('visible');
+  // Clear and rebuild list
+  winnersList.innerHTML = '';
+  selectedWinners.forEach(w => {
+    const li = document.createElement('li');
+    li.textContent = w;
+    winnersList.appendChild(li);
+  });
+}
+
+function animateNameToWinnersBox(name) {
+  // Get winner modal position (center of screen)
+  const modal = winnerModal.querySelector('.modal');
+  const winnerTextEl = document.getElementById('winnerMsg');
+  const startRect = winnerTextEl.getBoundingClientRect();
+  
+  // Get winners box target position
+  const targetRect = winnersBox.getBoundingClientRect();
+  const targetX = targetRect.left + targetRect.width / 2;
+  const targetY = targetRect.top + targetRect.height / 2;
+  
+  // Create flying element
+  const flyer = document.createElement('div');
+  flyer.className = 'flying-name';
+  flyer.textContent = name;
+  flyer.style.left = startRect.left + 'px';
+  flyer.style.top = startRect.top + 'px';
+  flyer.style.width = startRect.width + 'px';
+  flyer.style.textAlign = 'center';
+  document.body.appendChild(flyer);
+  
+  // Force reflow
+  flyer.getBoundingClientRect();
+  
+  // Animate to target
+  requestAnimationFrame(() => {
+    flyer.style.left = (targetX - 40) + 'px';
+    flyer.style.top = (targetY - 20) + 'px';
+    flyer.style.opacity = '0';
+    flyer.style.transform = 'scale(0.3)';
+  });
+  
+  // After animation, add to list and remove flyer
+  setTimeout(() => {
+    addWinnerToBox(name);
+    flyer.remove();
+  }, 1200);
+}
+
 /* ---------- Event listeners for buttons ---------- */
 addRowBtn.addEventListener('click', () => addRow(''));
 clearAllBtn.addEventListener('click', clearAllRows);
@@ -859,8 +986,8 @@ function goToWheel() {
   inputScreen.style.display = 'none';
   wheelScreen.classList.add('active');
   currentRotation = 0;
-  spinActivated = false; // Reset spin state
-  pointerBox.textContent = ''; // Clear pointer box
+  spinActivated = false;
+  pointerBox.textContent = '';
   setTimeout(() => {
     resizeCanvas();
     updatePointerBox();
@@ -919,8 +1046,8 @@ function drawWheel() {
     ctx.rotate(startAngle + sliceAngle / 2);
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#000000'; // Strictly black font
-    ctx.font = `${fontSize}px 'Barlow Condensed', sans-serif`; // Not bold, Barlow Condensed, no border
+    ctx.fillStyle = '#000000';
+    ctx.font = `${fontSize}px 'Barlow Condensed', sans-serif`;
     const label = names[i];
     const maxLen = Math.max(4, Math.floor(radius / (fontSize * 0.55)) - 2);
     const display = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
@@ -949,7 +1076,6 @@ function getSliceAtPointer() {
 }
 
 function updatePointerBox() {
-  // Only display name after user clicks Spin
   if (!spinActivated) {
     pointerBox.textContent = '';
     return;
@@ -1005,7 +1131,7 @@ spinBtn.addEventListener('click', () => {
     return;
   }
   
-  spinActivated = true; // Enable pointer box display
+  spinActivated = true;
   spinning = true;
   spinBtn.disabled = true;
 
@@ -1065,23 +1191,28 @@ winnerClose.addEventListener('click', () => {
 
 winnerRemove.addEventListener('click', () => {
   if (lastWinnerName) {
+    // First, animate the name flying to winners box
+    animateNameToWinnersBox(lastWinnerName);
+    
+    // Then remove from table and update wheel
     removeNameFromTable(lastWinnerName);
     collectNames();
-    if (names.length >= 2) {
-      currentRotation = 0;
-      drawWheel();
-      updatePointerBox();
-    } else if (names.length === 1) {
-      winnerModal.classList.remove('active');
-      wheelScreen.classList.remove('active');
-      inputScreen.style.display = 'block';
-      showAlert('Only one name remains. Please add more names.');
-    } else {
-      winnerModal.classList.remove('active');
-      wheelScreen.classList.remove('active');
-      inputScreen.style.display = 'block';
-      showAlert('No names remaining. Please add names.');
-    }
+    
+    setTimeout(() => {
+      if (names.length >= 2) {
+        currentRotation = 0;
+        drawWheel();
+        updatePointerBox();
+      } else if (names.length === 1) {
+        wheelScreen.classList.remove('active');
+        inputScreen.style.display = 'block';
+        showAlert('Only one name remains. Please add more names.');
+      } else {
+        wheelScreen.classList.remove('active');
+        inputScreen.style.display = 'block';
+        showAlert('No names remaining. Please add names.');
+      }
+    }, 100);
   }
   winnerModal.classList.remove('active');
 });
