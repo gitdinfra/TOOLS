@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wheel of Fortune</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    min-height: 100vh;
+    height: 100%;
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    background: linear-gradient(to bottom, #007BFF 0%, #D9EBFF 100%);
+    background-attachment: fixed;
+    color: #0b2545;
+  }
+  body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Background Emoji Animation */
+  @keyframes emojiPop {
+    0% { opacity: 0; transform: scale(0.5) translateY(20px) rotate(0deg); }
+    15% { opacity: 0.65; transform: scale(1) translateY(0) rotate(15deg); }
+    85% { opacity: 0.65; transform: scale(1) translateY(-15px) rotate(-15deg); }
+    100% { opacity: 0; transform: scale(0.5) translateY(-30px) rotate(0deg); }
+  }
+
+  h1 {
+    font-size: 42px;
+    font-weight: bold;
+    text-transform: capitalize;
+    color: #ffffff;
+    text-shadow: 2px 2px 6px rgba(0,0,0,0.35);
+    margin-bottom: 24px;
+    letter-spacing: 1px;
+    position: relative;
+    z-index: 1;
+  }
+  .card {
+    background: rgba(255,255,255,0.92);
+    border-radius: 14px;
+    padding: 22px 26px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    width: 100%;
+    max-width: 620px;
+    position: relative;
+    z-index: 1;
+  }
+  .note {
+    font-size: 14px;
+    color: #1a3a6b;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+
+  /* Table-like name entry - shows 15 rows (15 * 44px = 660px) */
+  .name-table-wrap {
+    max-height: 660px;
+    overflow-y: auto;
+    border: 2px solid #007BFF;
+    border-radius: 8px;
+    background: #fff;
+    margin-bottom: 12px;
+  }
+  .name-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .name-table tr {
+    border-bottom: 1px solid #e0e8f0;
+    height: 44px;
+  }
+  .name-table tr:last-child {
+    border-bottom: none;
+  }
+  .name-table td {
+    padding: 0;
+    vertical-align: middle;
+  }
+  .name-table .num-cell {
+    width: 48px;
+    text-align: center;
+    font-weight: bold;
+    color: #007BFF;
+    font-size: 14px;
+    padding: 8px 4px;
+    user-select: none;
+    background: #f0f6ff;
+    border-right: 1px solid #d0dce8;
+  }
+  .name-table .input-cell {
+    padding: 0;
+  }
+  .name-table .input-cell input {
+    width: 100%;
+    border: none;
+    outline: none;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-family: inherit;
+    background: transparent;
+    height: 44px;
+  }
+  .name-table .input-cell input:focus {
+    background: #eef5ff;
+  }
+  .name-table .del-cell {
+    width: 40px;
+    text-align: center;
+  }
+  .name-table .del-btn {
+    background: none;
+    border: none;
+    color: #d9534f;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+  .name-table .del-btn:hover {
+    background: #fde8e8;
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+  .toolbar .btn-sm {
+    background: #007BFF;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.25s ease;
+  }
+  .btn-sm:hover { background: #0056b3; }
+  .btn-sm.import-txt { background: #28a745; }
+  .btn-sm.import-txt:hover { background: #1e7e34; }
+  .btn-sm.import-csv { background: #fd7e14; }
+  .btn-sm.import-csv:hover { background: #d96a0e; }
+  .btn-sm.import-xlsx { background: #6f42c1; }
+  .btn-sm.import-xlsx:hover { background: #5a32a3; }
+  .btn-sm.add-row { background: #17a2b8; }
+  .btn-sm.add-row:hover { background: #117a8b; }
+
+  .btn-row {
+    display: flex;
+    justify-content: center;
+    margin: 14px 0;
+  }
+  .btn {
+    background: #007BFF;
+    color: #fff;
+    border: none;
+    padding: 12px 26px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.25s ease, transform 0.15s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.18);
+  }
+  .btn:hover { background: #ff9800; transform: translateY(-2px); }
+  .btn:active { transform: translateY(0); }
+  .btn.spin { background: #d9534f; }
+  .btn.spin:hover { background: #c9302c; }
+  .btn.back { background: #6c757d; }
+  .btn.back:hover { background: #495057; }
+
+  /* Wheel screen - full page layout */
+  #wheelScreen {
+    display: none;
+    width: 100%;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+  }
+  #wheelScreen.active {
+    display: flex;
+  }
+  .wheel-wrap {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    flex: 1;
+    justify-content: center;
+  }
+  .wheel-container {
+    position: relative;
+    width: min(85vw, 80vh);
+    height: min(85vw, 80vh);
+    max-width: 1200px;
+    max-height: 1200px;
+  }
+  canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 50%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    background: #fff;
+  }
+
+  /* Pointer peg - white with red border, pointing left toward wheel */
+  .pointer {
+    position: absolute;
+    right: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 56px;
+    z-index: 5;
+    filter: drop-shadow(-3px 3px 5px rgba(0,0,0,0.45));
+  }
+  .pointer svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .pointer-box {
+    position: absolute;
+    right: -230px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #fff;
+    border: 3px solid #d9534f;
+    border-radius: 10px;
+    padding: 12px 18px;
+    min-width: 180px;
+    text-align: center;
+    font-weight: bold;
+    color: #0b2545;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  .wheel-actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .wheel-actions .btn {
+    font-size: 20px;
+    padding: 14px 36px;
+  }
+  .tooltip {
+    position: absolute;
+    background: rgba(0,0,0,0.85);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 15px;
+    pointer-events: none;
+    z-index: 10;
+    display: none;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    position: relative;
+    background: #fff;
+    padding: 30px 36px;
+    border-radius: 14px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    max-width: 90%;
+    min-width: 320px;
+  }
+  .modal h2 {
+    color: #007BFF;
+    margin-bottom: 14px;
+    font-size: 26px;
+  }
+  .modal p { font-size: 18px; margin-bottom: 22px; color: #333; }
+  .modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .modal .btn { min-width: 120px; }
+  .btn.remove { background: #28a745; }
+  .btn.remove:hover { background: #1e7e34; }
+
+  /* Round Close X Button */
+  .close-x-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid #d9534f;
+    color: #d9534f;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    transition: all 0.2s ease;
+    padding: 0;
+  }
+  .close-x-btn:hover {
+    background: #d9534f;
+    color: #fff;
+    transform: scale(1.1);
+  }
+
+  /* Confetti */
+  .confetti {
+    position: fixed;
+    top: -20px;
+    width: 10px;
+    height: 14px;
+    opacity: 0.9;
+    z-index: 90;
+    pointer-events: none;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    to { transform: translateY(110vh) rotate(720deg); }
+  }
+
+  .hidden-input { display: none; }
+
+  @media (max-width: 900px) {
+    .pointer-box { right: -170px; min-width: 140px; font-size: 15px; max-width: 160px; padding: 8px 12px; }
+    h1 { font-size: 32px; }
+    .wheel-actions .btn { font-size: 16px; padding: 12px 24px; }
+  }
+  @media (max-width: 600px) {
+    .pointer-box { display: none; }
+    .wheel-container { width: 90vw; height: 90vw; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Wheel of Fortune</h1>
+
+<!-- Input Screen -->
+<div id="inputScreen" class="card">
+  <div class="btn-row">
+    <button class="btn" id="goBtnTop">Go to the wheel</button>
+  </div>
+  <p class="note">Please enter names, one name for each line.</p>
+
+  <div class="toolbar">
+    <button class="btn-sm add-row" id="addRowBtn">+ Add Row</button>
+    <button class="btn-sm import-txt" id="importTxtBtn">Import TXT</button>
+    <button class="btn-sm import-csv" id="importCsvBtn">Import CSV</button>
+    <button class="btn-sm import-xlsx" id="importXlsxBtn">Import XLSX</button>
+    <button class="btn-sm" id="clearAllBtn" style="background:#d9534f;">Clear All</button>
+  </div>
+
+  <div class="name-table-wrap">
+    <table class="name-table" id="nameTable">
+      <tbody id="nameTableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="goBtnBottom">Go to the wheel</button>
+  </div>
+</div>
+
+<!-- Hidden file inputs -->
+<input type="file" id="txtFileInput" class="hidden-input" accept=".txt">
+<input type="file" id="csvFileInput" class="hidden-input" accept=".csv">
+<input type="file" id="xlsxFileInput" class="hidden-input" accept=".xlsx,.xls">
+
+<!-- Wheel Screen -->
+<div id="wheelScreen">
+  <div class="wheel-wrap">
+    <div class="wheel-container" id="wheelContainer">
+      <canvas id="wheel"></canvas>
+      <!-- Pointer peg: white triangle with red border, pointing left -->
+      <div class="pointer">
+        <svg viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+          <polygon
+            points="44,0 44,56 0,28"
+            fill="#ffffff"
+            stroke="#d9534f"
+            stroke-width="3"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="pointer-box" id="pointerBox"></div>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="wheel-actions">
+      <button class="btn spin" id="spinBtn">Spin</button>
+      <button class="btn back" id="backBtn">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Alert modal -->
+<div class="modal-overlay" id="alertModal">
+  <div class="modal">
+    <h2 id="alertTitle">Notice</h2>
+    <p id="alertMsg"></p>
+    <div class="modal-buttons">
+      <button class="btn" id="alertOk">Ok</button>
+    </div>
+  </div>
+</div>
+
+<!-- Winner modal -->
+<div class="modal-overlay" id="winnerModal">
+  <div class="modal">
+    <button class="close-x-btn" id="winnerClose" aria-label="Close">✕</button>
+    <h2>🎉 Winner! 🎉</h2>
+    <p id="winnerMsg" style="font-size:26px; font-weight:bold; color:#d9534f;"></p>
+    <div class="modal-buttons">
+      <button class="btn remove" id="winnerRemove">Remove Name and Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- State ---------- */
+let names = [];
+let currentRotation = 0;
+let spinning = false;
+let hoveredIndex = -1;
+let lastWinnerName = null;
+let lastWinnerIndex = -1;
+let spinActivated = false; // Controls pointer box visibility
+
+/* ---------- Elements ---------- */
+const inputScreen = document.getElementById('inputScreen');
+const wheelScreen = document.getElementById('wheelScreen');
+const goBtnTop = document.getElementById('goBtnTop');
+const goBtnBottom = document.getElementById('goBtnBottom');
+const backBtn = document.getElementById('backBtn');
+const spinBtn = document.getElementById('spinBtn');
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const pointerBox = document.getElementById('pointerBox');
+const tooltip = document.getElementById('tooltip');
+const alertModal = document.getElementById('alertModal');
+const alertMsg = document.getElementById('alertMsg');
+const alertOk = document.getElementById('alertOk');
+const winnerModal = document.getElementById('winnerModal');
+const winnerMsg = document.getElementById('winnerMsg');
+const winnerClose = document.getElementById('winnerClose');
+const winnerRemove = document.getElementById('winnerRemove');
+const nameTableBody = document.getElementById('nameTableBody');
+const addRowBtn = document.getElementById('addRowBtn');
+const clearAllBtn = document.getElementById('clearAllBtn');
+const importTxtBtn = document.getElementById('importTxtBtn');
+const importCsvBtn = document.getElementById('importCsvBtn');
+const importXlsxBtn = document.getElementById('importXlsxBtn');
+const txtFileInput = document.getElementById('txtFileInput');
+const csvFileInput = document.getElementById('csvFileInput');
+const xlsxFileInput = document.getElementById('xlsxFileInput');
+
+/* ---------- Background Emojis ---------- */
+const emojiList = ['', '😆', '🥰', '😍', '🤩', '🥳', '☺️', '😎', '😉', '🫡', '😅', ''];
+const emojiContainer = document.createElement('div');
+emojiContainer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;';
+document.body.prepend(emojiContainer);
+
+function spawnEmoji() {
+  const el = document.createElement('div');
+  el.textContent = emojiList[Math.floor(Math.random() * emojiList.length)];
+  const size = 24 + Math.random() * 48;
+  const duration = 4 + Math.random() * 5;
+  el.style.cssText = `
+    position: absolute;
+    left: ${Math.random() * 100}vw;
+    top: ${Math.random() * 100}vh;
+    font-size: ${size}px;
+    opacity: 0;
+    animation: emojiPop ${duration}s ease-in-out forwards;
+    user-select: none;
+  `;
+  emojiContainer.appendChild(el);
+  setTimeout(() => el.remove(), duration * 1000);
+}
+
+// Spawn emojis periodically
+setInterval(() => {
+  const count = Math.floor(Math.random() * 3) + 1;
+  for (let i = 0; i < count; i++) spawnEmoji();
+}, 700);
+
+/* ---------- Canvas sizing (dynamic, high-DPI) ---------- */
+function resizeCanvas() {
+  const container = document.getElementById('wheelContainer');
+  const rect = container.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const size = Math.floor(rect.width);
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawWheel();
+}
+window.addEventListener('resize', () => {
+  if (wheelScreen.classList.contains('active')) resizeCanvas();
+});
+
+/* ---------- Table row management ---------- */
+function createRow(value = '') {
+  const tr = document.createElement('tr');
+  const numTd = document.createElement('td');
+  numTd.className = 'num-cell';
+  const inputTd = document.createElement('td');
+  inputTd.className = 'input-cell';
+  const delTd = document.createElement('td');
+  delTd.className = 'del-cell';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = value;
+  input.placeholder = 'Enter name...';
+  input.autocomplete = 'off';
+  input.autocorrect = 'off';
+  input.autocapitalize = 'off';
+  input.spellcheck = false;
+
+  input.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const pastedText = (e.clipboardData || window.clipboardData).getData('text');
+    const lines = pastedText.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+    if (lines.length > 1) {
+      input.value = lines[0];
+      for (let i = 1; i < lines.length; i++) {
+        const newTr = createRow(lines[i]);
+        tr.parentNode.insertBefore(newTr, tr.nextSibling);
+      }
+      renumberRows();
+      collectNames();
+    } else {
+      input.value = lines[0] || '';
+    }
+  });
+
+  input.addEventListener('input', () => collectNames());
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'del-btn';
+  delBtn.innerHTML = '✕';
+  delBtn.title = 'Remove row';
+  delBtn.addEventListener('click', () => {
+    if (nameTableBody.children.length > 1) {
+      tr.remove();
+      renumberRows();
+      collectNames();
+    }
+  });
+
+  numTd.appendChild(document.createTextNode(''));
+  inputTd.appendChild(input);
+  delTd.appendChild(delBtn);
+  tr.appendChild(numTd);
+  tr.appendChild(inputTd);
+  tr.appendChild(delTd);
+  return tr;
+}
+
+function renumberRows() {
+  const rows = nameTableBody.querySelectorAll('tr');
+  rows.forEach((row, i) => {
+    row.querySelector('.num-cell').textContent = (i + 1) + '.';
+  });
+}
+
+function addRow(value = '') {
+  const tr = createRow(value);
+  nameTableBody.appendChild(tr);
+  renumberRows();
+  collectNames();
+  tr.querySelector('input').focus();
+}
+
+function collectNames() {
+  const inputs = nameTableBody.querySelectorAll('input');
+  names = [];
+  inputs.forEach(inp => {
+    const val = inp.value.trim();
+    if (val) names.push(val);
+  });
+}
+
+function clearAllRows() {
+  nameTableBody.innerHTML = '';
+  for (let i = 0; i < 3; i++) addRow('');
+  names = [];
+}
+
+function setNamesFromList(list) {
+  nameTableBody.innerHTML = '';
+  if (list.length === 0) {
+    for (let i = 0; i < 3; i++) addRow('');
+    return;
+  }
+  list.forEach(name => addRow(name));
+}
+
+function removeNameFromTable(nameToRemove) {
+  const inputs = nameTableBody.querySelectorAll('input');
+  for (const inp of inputs) {
+    if (inp.value.trim() === nameToRemove) {
+      const tr = inp.closest('tr');
+      if (nameTableBody.children.length > 1) {
+        tr.remove();
+        renumberRows();
+        collectNames();
+      }
+      return;
+    }
+  }
+}
+
+for (let i = 0; i < 3; i++) addRow('');
+
+/* ---------- Event listeners for buttons ---------- */
+addRowBtn.addEventListener('click', () => addRow(''));
+clearAllBtn.addEventListener('click', clearAllRows);
+
+importTxtBtn.addEventListener('click', () => txtFileInput.click());
+importCsvBtn.addEventListener('click', () => csvFileInput.click());
+importXlsxBtn.addEventListener('click', () => xlsxFileInput.click());
+
+txtFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result;
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+    setNamesFromList(lines);
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+csvFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const text = ev.target.result;
+    const lines = text.split(/\r?\n/);
+    const namesList = [];
+    lines.forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      if (line.includes(',')) {
+        const cells = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        cells.forEach(c => { if (c) namesList.push(c); });
+      } else {
+        namesList.push(line.replace(/^"|"$/g, ''));
+      }
+    });
+    setNamesFromList(namesList);
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+xlsxFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      const namesList = [];
+      jsonData.forEach(row => {
+        if (Array.isArray(row)) {
+          row.forEach(cell => {
+            if (cell !== null && cell !== undefined && String(cell).trim() !== '') {
+              namesList.push(String(cell).trim());
+            }
+          });
+        } else if (row !== null && row !== undefined && String(row).trim() !== '') {
+          namesList.push(String(row).trim());
+        }
+      });
+      setNamesFromList(namesList);
+    } catch (err) {
+      showAlert('Failed to read XLSX file. Please check the file format.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+/* ---------- Navigation ---------- */
+function showAlert(msg, title='Notice') {
+  document.getElementById('alertTitle').textContent = title;
+  alertMsg.textContent = msg;
+  alertModal.classList.add('active');
+}
+alertOk.addEventListener('click', () => alertModal.classList.remove('active'));
+
+function goToWheel() {
+  collectNames();
+  if (names.length < 2) {
+    showAlert('please enter two or more names');
+    return;
+  }
+  inputScreen.style.display = 'none';
+  wheelScreen.classList.add('active');
+  currentRotation = 0;
+  spinActivated = false; // Reset spin state
+  pointerBox.textContent = ''; // Clear pointer box
+  setTimeout(() => {
+    resizeCanvas();
+    updatePointerBox();
+  }, 50);
+}
+goBtnTop.addEventListener('click', goToWheel);
+goBtnBottom.addEventListener('click', goToWheel);
+backBtn.addEventListener('click', () => {
+  if (spinning) return;
+  wheelScreen.classList.remove('active');
+  inputScreen.style.display = 'block';
+});
+
+/* ---------- Wheel drawing ---------- */
+function sliceColor(i, total) {
+  const hue = (i * 360 / total) % 360;
+  return `hsl(${hue}, 85%, 58%)`;
+}
+
+function drawWheel() {
+  const cssSize = parseFloat(canvas.style.width) || canvas.width;
+  const cx = cssSize / 2, cy = cssSize / 2;
+  const radius = cssSize / 2 - 4;
+  ctx.clearRect(0, 0, cssSize, cssSize);
+
+  const n = names.length;
+  if (n === 0) return;
+  const sliceAngle = (Math.PI * 2) / n;
+  let fontSize = Math.max(10, Math.min(36, Math.floor(cssSize / Math.max(n, 1) * 1.2)));
+  if (n > 60) fontSize = Math.max(9, Math.floor(26 - n * 0.08));
+  if (n > 120) fontSize = Math.max(8, Math.floor(16 - (n - 120) * 0.03));
+
+  for (let i = 0; i < n; i++) {
+    const startAngle = currentRotation + i * sliceAngle;
+    const endAngle = startAngle + sliceAngle;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = sliceColor(i, n);
+    ctx.fill();
+    if (hoveredIndex === i) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(startAngle + sliceAngle / 2);
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${fontSize}px Segoe UI, Arial, sans-serif`;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 3;
+    const label = names[i];
+    const maxLen = Math.max(4, Math.floor(radius / (fontSize * 0.55)) - 2);
+    const display = label.length > maxLen ? label.slice(0, maxLen - 1) + '…' : label;
+    ctx.fillText(display, radius - 14, 0);
+    ctx.restore();
+  }
+
+  const hubRadius = Math.max(18, radius * 0.08);
+  ctx.beginPath();
+  ctx.arc(cx, cy, hubRadius, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#007BFF';
+  ctx.stroke();
+}
+
+function getSliceAtPointer() {
+  const n = names.length;
+  const sliceAngle = (Math.PI * 2) / n;
+  let rot = currentRotation % (Math.PI * 2);
+  if (rot < 0) rot += Math.PI * 2;
+  const target = (Math.PI * 2 - rot) % (Math.PI * 2);
+  const idx = Math.floor(target / sliceAngle) % n;
+  return idx;
+}
+
+function updatePointerBox() {
+  // Only display name after user clicks Spin
+  if (!spinActivated) {
+    pointerBox.textContent = '';
+    return;
+  }
+  if (names.length === 0) { pointerBox.textContent = '—'; return; }
+  const idx = getSliceAtPointer();
+  pointerBox.textContent = names[idx] || '—';
+}
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const cssSize = parseFloat(canvas.style.width) || canvas.width;
+  const x = (e.clientX - rect.left);
+  const y = (e.clientY - rect.top);
+  const cx = cssSize / 2, cy = cssSize / 2;
+  const dx = x - cx, dy = y - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const radius = cssSize / 2 - 4;
+
+  if (dist > radius || names.length === 0) {
+    hoveredIndex = -1;
+    tooltip.style.display = 'none';
+    drawWheel();
+    return;
+  }
+  let angle = Math.atan2(dy, dx);
+  if (angle < 0) angle += Math.PI * 2;
+  let rel = angle - (currentRotation % (Math.PI * 2));
+  if (rel < 0) rel += Math.PI * 2;
+  const sliceAngle = (Math.PI * 2) / names.length;
+  const idx = Math.floor(rel / sliceAngle) % names.length;
+  hoveredIndex = idx;
+  drawWheel();
+
+  tooltip.textContent = names[idx];
+  tooltip.style.display = 'block';
+  const containerRect = document.getElementById('wheelContainer').getBoundingClientRect();
+  tooltip.style.left = (e.clientX - containerRect.left + 16) + 'px';
+  tooltip.style.top = (e.clientY - containerRect.top + 16) + 'px';
+});
+canvas.addEventListener('mouseleave', () => {
+  hoveredIndex = -1;
+  tooltip.style.display = 'none';
+  drawWheel();
+});
+
+/* ---------- Spin ---------- */
+spinBtn.addEventListener('click', () => {
+  if (spinning) return;
+  collectNames();
+  if (names.length < 2) {
+    showAlert('please enter two or more names');
+    return;
+  }
+  
+  spinActivated = true; // Enable pointer box display
+  spinning = true;
+  spinBtn.disabled = true;
+
+  try {
+    const drum = new Audio('Drum_Tada.mp3');
+    drum.volume = 0.8;
+    drum.play().catch(()=>{});
+  } catch(e){}
+
+  const startRot = currentRotation;
+  const n = names.length;
+  const sliceAngle = (Math.PI * 2) / n;
+  const targetSlice = Math.floor(Math.random() * n);
+  const targetAngle = -(targetSlice + 0.5) * sliceAngle;
+  const extraTurns = 6 + Math.floor(Math.random() * 4);
+  const endRot = startRot + extraTurns * Math.PI * 2 + ((targetAngle - startRot) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+
+  const totalDuration = 6000;
+  const startTime = performance.now();
+
+  function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
+
+  function frame(now) {
+    const elapsed = now - startTime;
+    const t = Math.min(1, elapsed / totalDuration);
+    const eased = easeOutQuart(t);
+    currentRotation = startRot + (endRot - startRot) * eased;
+    drawWheel();
+    updatePointerBox();
+    if (t < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      spinning = false;
+      spinBtn.disabled = false;
+      lastWinnerName = names[targetSlice];
+      lastWinnerIndex = targetSlice;
+      showWinner(lastWinnerName);
+    }
+  }
+  requestAnimationFrame(frame);
+});
+
+function showWinner(name) {
+  winnerMsg.textContent = `Congratulation ${name} !!`;
+  winnerModal.classList.add('active');
+  launchConfetti();
+  try {
+    const clap = new Audio('clap.mp3');
+    clap.volume = 0.9;
+    clap.play().catch(()=>{});
+  } catch(e){}
+}
+
+winnerClose.addEventListener('click', () => {
+  winnerModal.classList.remove('active');
+});
+
+winnerRemove.addEventListener('click', () => {
+  if (lastWinnerName) {
+    removeNameFromTable(lastWinnerName);
+    collectNames();
+    if (names.length >= 2) {
+      currentRotation = 0;
+      drawWheel();
+      updatePointerBox();
+    } else if (names.length === 1) {
+      winnerModal.classList.remove('active');
+      wheelScreen.classList.remove('active');
+      inputScreen.style.display = 'block';
+      showAlert('Only one name remains. Please add more names.');
+    } else {
+      winnerModal.classList.remove('active');
+      wheelScreen.classList.remove('active');
+      inputScreen.style.display = 'block';
+      showAlert('No names remaining. Please add names.');
+    }
+  }
+  winnerModal.classList.remove('active');
+});
+
+function launchConfetti() {
+  const colors = ['#ff3b3b','#ffb703','#2ec4b6','#ff006e','#8338ec','#3a86ff','#06d6a0','#ffd166'];
+  const count = 160;
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    const dur = 2.2 + Math.random() * 2.5;
+    c.style.animationDuration = dur + 's';
+    c.style.animationDelay = (Math.random() * 0.8) + 's';
+    c.style.width = (8 + Math.random() * 10) + 'px';
+    c.style.height = (10 + Math.random() * 14) + 'px';
+    c.style.transform = `rotate(${Math.random()*360}deg)`;
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), (dur + 1.5) * 1000);
+  }
+}
+</script>
+</body>
+</html>
