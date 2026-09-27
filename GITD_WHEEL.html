@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>GITD Wheel of Luck</title>
     <!-- Favicon -->
-    <link rel="icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="https://cdn-icons-png.magnific.com/256/17744/17744735.png" type="image/x-icon" />
     <link rel="shortcut icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
@@ -99,7 +99,6 @@
             transform-origin: top center;
             z-index: 20;
             will-change: transform;
-            /* Responsive sizing: 7.2% of wheel width (60% smaller than 18%) */
             width: 7.2%;
             height: auto;
             filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.4));
@@ -538,7 +537,6 @@
             let names = [];
             let currentAngle = 0;
             let isSpinning = false;
-            let spinVelocity = 0;
             let animationId = null;
             let canvasSize = 0;
             
@@ -563,17 +561,118 @@
             let fountainAnimationId = null;
             let rainParticles = [];
             let fountainParticles = [];
-            const NERVOUS_EMOJIS = ['😳', '🥶', '', '🫣', '🫨', '🤨', '😐'];
-            const CELEBRATION_EMOJIS = ['', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '', '💰'];
+            const NERVOUS_EMOJIS = ['😳', '🥶', '😰', '🫣', '🫨', '🤨', '😐'];
+            const CELEBRATION_EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🏆', '💰'];
+
+            // =================================================================
+            // CRYPTOGRAPHICALLY SECURE RANDOMIZATION (Zero Modulo Bias)
+            // =================================================================
+            
+            /**
+             * Cryptographically secure random integer in [0, max) without modulo bias.
+             * Uses rejection sampling to guarantee perfect uniform distribution.
+             */
+            function getSecureRandomInt(max) {
+                if (max <= 0) throw new Error("Max must be greater than 0");
+                if (max === 1) return 0;
+
+                const maxUint32 = 0xFFFFFFFF;
+                const limit = maxUint32 - (maxUint32 % max);
+                const array = new Uint32Array(1);
+
+                while (true) {
+                    crypto.getRandomValues(array);
+                    if (array[0] < limit) {
+                        return array[0] % max;
+                    }
+                }
+            }
+
+            /**
+             * Cryptographically secure random float in [min, max).
+             */
+            function getSecureRandomFloat(min, max) {
+                const array = new Uint32Array(1);
+                crypto.getRandomValues(array);
+                const fraction = array[0] / 0xFFFFFFFF;
+                return min + fraction * (max - min);
+            }
+
+            /**
+             * Triple-layered cryptographic secure winner selection.
+             * 1. Primary entropy (CSPRNG 32 bytes)
+             * 2. Secondary entropy (CSPRNG 32 bytes) 
+             * 3. Tertiary entropy (High-resolution performance timestamp)
+             * Combined and hashed with SHA-256, then rejection sampling for zero modulo bias.
+             */
+            async function getSecureWinnerIndex(numNames) {
+                if (numNames <= 1) return 0;
+
+                const maxUint32 = 0xFFFFFFFF;
+                const limit = maxUint32 - (maxUint32 % numNames);
+
+                while (true) {
+                    // 1. Primary entropy
+                    const primary = new Uint8Array(32);
+                    crypto.getRandomValues(primary);
+
+                    // 2. Secondary entropy (Double cryptography)
+                    const secondary = new Uint8Array(32);
+                    crypto.getRandomValues(secondary);
+
+                    // 3. Tertiary entropy (Triple cryptography)
+                    const timeBytes = new Uint8Array(8);
+                    const timeView = new DataView(timeBytes.buffer);
+                    timeView.setFloat64(0, performance.now());
+
+                    // Combine all entropy sources (72 bytes total)
+                    const combined = new Uint8Array(72);
+                    combined.set(primary, 0);
+                    combined.set(secondary, 32);
+                    combined.set(timeBytes, 64);
+
+                    // Hash with SHA-256 via Web Crypto API
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
+                    const randomValue = new DataView(hashBuffer).getUint32(0, false);
+
+                    // Eliminate modulo bias via rejection sampling
+                    if (randomValue < limit) {
+                        return randomValue % numNames;
+                    }
+                }
+            }
+
+            /**
+             * Calculates the exact target angle to land on the pre-determined secure winner.
+             * Ensures the wheel lands comfortably in the middle of the slice (15%-85% margin).
+             */
+            function calculateTargetAngle(targetIndex, numNames, minSpins = 6, maxSpins = 10) {
+                const arc = (Math.PI * 2) / numNames;
+                
+                // Secure random offset within the slice to avoid boundary lines
+                const offsetFraction = 0.15 + (getSecureRandomInt(10000) / 10000) * 0.70;
+                const offset = offsetFraction * arc;
+                
+                // rel is the angle in the unrotated wheel that should be at the top pointer
+                const rel = targetIndex * arc + offset;
+                
+                // a is the required currentAngle modulo 2π
+                let a = (Math.PI * 2 - rel) % (Math.PI * 2);
+                if (a < 0) a += Math.PI * 2;
+                
+                const spinCount = minSpins + getSecureRandomInt(maxSpins - minSpins + 1);
+                
+                return a + (Math.PI * 2 * spinCount);
+            }
 
             // ─── Normal floating emojis ──────────────────────────────
             function spawnNormalEmoji() {
                 const el = document.createElement('div');
                 el.className = 'bg-emoji';
-                el.textContent = CELEBRATION_EMOJIS[Math.floor(Math.random() * CELEBRATION_EMOJIS.length)];
-                el.style.left = (5 + Math.random() * 90) + 'vw';
-                el.style.top = (10 + Math.random() * 80) + 'vh';
-                const dur = 2.5 + Math.random() * 3;
+                el.textContent = CELEBRATION_EMOJIS[getSecureRandomInt(CELEBRATION_EMOJIS.length)];
+                el.style.left = getSecureRandomFloat(5, 95) + 'vw';
+                el.style.top = getSecureRandomFloat(10, 90) + 'vh';
+                const dur = getSecureRandomFloat(2.5, 5.5);
                 el.style.animationDuration = dur + 's';
                 emojiContainer.appendChild(el);
                 setTimeout(() => { if (el.parentNode) el.remove(); }, dur * 1000);
@@ -609,21 +708,21 @@
                 for (let i = 0; i < count; i++) {
                     const el = document.createElement('div');
                     el.className = 'rain-emoji';
-                    el.textContent = NERVOUS_EMOJIS[Math.floor(Math.random() * NERVOUS_EMOJIS.length)];
-                    const size = 1.2 + Math.random() * 2.5;
+                    el.textContent = NERVOUS_EMOJIS[getSecureRandomInt(NERVOUS_EMOJIS.length)];
+                    const size = getSecureRandomFloat(1.2, 3.7);
                     el.style.fontSize = size + 'rem';
-                    el.style.left = (Math.random() * 100) + '%';
+                    el.style.left = getSecureRandomFloat(0, 100) + '%';
                     el.style.top = '-10%';
-                    el.style.transform = `rotate(${Math.random() * 360}deg)`;
-                    el.style.opacity = 0.7 + Math.random() * 0.3;
+                    el.style.transform = `rotate(${getSecureRandomFloat(0, 360)}deg)`;
+                    el.style.opacity = getSecureRandomFloat(0.7, 1.0);
                     emojiContainer.appendChild(el);
                     rainParticles.push({
                         el: el,
                         x: parseFloat(el.style.left),
-                        y: -10 - Math.random() * 20,
-                        speed: 2 + Math.random() * 5,
-                        rotation: parseFloat(el.style.transform.replace(/[^0-9.]/g, '')) || 0,
-                        rotSpeed: (Math.random() - 0.5) * 2,
+                        y: -10 - getSecureRandomFloat(0, 20),
+                        speed: getSecureRandomFloat(2, 7),
+                        rotation: getSecureRandomFloat(0, 360),
+                        rotSpeed: getSecureRandomFloat(-1, 1),
                         size: size
                     });
                 }
@@ -635,13 +734,13 @@
                         p.el.style.top = p.y + '%';
                         p.el.style.transform = `rotate(${p.rotation}deg)`;
                         if (p.y > 110) {
-                            p.y = -10 - Math.random() * 20;
-                            p.x = Math.random() * 100;
-                            p.speed = 2 + Math.random() * 5;
+                            p.y = -10 - getSecureRandomFloat(0, 20);
+                            p.x = getSecureRandomFloat(0, 100);
+                            p.speed = getSecureRandomFloat(2, 7);
                             p.el.style.left = p.x + '%';
-                            p.el.textContent = NERVOUS_EMOJIS[Math.floor(Math.random() * NERVOUS_EMOJIS.length)];
-                            p.el.style.fontSize = (1.2 + Math.random() * 2.5) + 'rem';
-                            p.rotSpeed = (Math.random() - 0.5) * 2;
+                            p.el.textContent = NERVOUS_EMOJIS[getSecureRandomInt(NERVOUS_EMOJIS.length)];
+                            p.el.style.fontSize = getSecureRandomFloat(1.2, 3.7) + 'rem';
+                            p.rotSpeed = getSecureRandomFloat(-1, 1);
                         }
                     }
                     if (isSpinning) {
@@ -680,17 +779,17 @@
                 for (let i = 0; i < count; i++) {
                     const el = document.createElement('div');
                     el.className = 'fountain-emoji';
-                    el.textContent = CELEBRATION_EMOJIS[Math.floor(Math.random() * CELEBRATION_EMOJIS.length)];
-                    const size = 1.5 + Math.random() * 3;
+                    el.textContent = CELEBRATION_EMOJIS[getSecureRandomInt(CELEBRATION_EMOJIS.length)];
+                    const size = getSecureRandomFloat(1.5, 4.5);
                     el.style.fontSize = size + 'rem';
-                    const angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
-                    const speed = 12 + Math.random() * 16;
-                    const vx = Math.cos(angle) * speed * (0.3 + Math.random() * 0.7);
-                    const vy = -Math.sin(angle) * speed * (0.5 + Math.random() * 0.5);
-                    el.style.left = (centerX + (Math.random() - 0.5) * 120) + 'px';
+                    const angle = -Math.PI / 2 + getSecureRandomFloat(-0.6, 0.6);
+                    const speed = getSecureRandomFloat(12, 28);
+                    const vx = Math.cos(angle) * speed * getSecureRandomFloat(0.3, 1.0);
+                    const vy = -Math.sin(angle) * speed * getSecureRandomFloat(0.5, 1.0);
+                    el.style.left = (centerX + getSecureRandomFloat(-60, 60)) + 'px';
                     el.style.top = (bottomY - 10) + 'px';
                     el.style.opacity = 1;
-                    el.style.transform = `rotate(${Math.random()*360}deg)`;
+                    el.style.transform = `rotate(${getSecureRandomFloat(0, 360)}deg)`;
                     emojiContainer.appendChild(el);
                     fountainParticles.push({
                         el: el,
@@ -698,11 +797,11 @@
                         y: parseFloat(el.style.top),
                         vx: vx,
                         vy: vy,
-                        gravity: 0.35 + Math.random() * 0.3,
-                        rotation: parseFloat(el.style.transform.replace(/[^0-9.]/g, '')) || 0,
-                        rotSpeed: (Math.random() - 0.5) * 4,
+                        gravity: getSecureRandomFloat(0.35, 0.65),
+                        rotation: getSecureRandomFloat(0, 360),
+                        rotSpeed: getSecureRandomFloat(-2, 2),
                         life: 1,
-                        decay: 0.005 + Math.random() * 0.008,
+                        decay: getSecureRandomFloat(0.005, 0.013),
                         size: size
                     });
                 }
@@ -755,7 +854,6 @@
             // ─── Physics-based pointer movement ───────────────────────
             function updatePointerPhysics() {
                 if (!isSpinning && isPointerHovered) {
-                    // Calculate distance from pointer center to mouse
                     const pointerRect = pointer.getBoundingClientRect();
                     const pointerCenterX = pointerRect.left + pointerRect.width / 2;
                     const pointerCenterY = pointerRect.top + pointerRect.height / 2;
@@ -763,28 +861,21 @@
                     const dx = mouseX - pointerCenterX;
                     const dy = mouseY - pointerCenterY;
                     
-                    // Apply spring force based on mouse distance
                     const targetRotation = dx * pointerPhysics.sensitivity;
-                    const clampedRotation = Math.max(-pointerPhysics.maxRotation, 
-                                           Math.min(pointerPhysics.maxRotation, targetRotation));
+                    const clampedRotation = Math.max(-pointerPhysics.maxRotation, Math.min(pointerPhysics.maxRotation, targetRotation));
                     
-                    // Spring physics
                     const acceleration = (clampedRotation - pointerRotation) * pointerPhysics.springStrength;
                     pointerVelocityX += acceleration;
                     pointerVelocityX *= pointerPhysics.damping;
-                    
                     pointerRotation += pointerVelocityX;
                     
-                    // Add slight vertical sway based on Y distance
                     const verticalSway = dy * 0.01;
                     pointerVelocityY += (verticalSway - pointerVelocityY) * 0.05;
                     pointerVelocityY *= pointerPhysics.damping;
                     
-                    // Apply transform with both rotation and slight scale for depth
                     const scale = 1 + (pointerVelocityY * 0.02);
                     pointer.style.transform = `translateX(-50%) rotate(${pointerRotation}deg) scale(${scale})`;
                 } else if (!isSpinning && !isPointerHovered) {
-                    // Smoothly return to neutral position when not hovering
                     const targetRotation = 0;
                     const acceleration = (targetRotation - pointerRotation) * pointerPhysics.springStrength;
                     pointerVelocityX += acceleration;
@@ -796,36 +887,20 @@
                     
                     pointer.style.transform = `translateX(-50%) rotate(${pointerRotation}deg) scale(${scale})`;
                 }
-                
                 requestAnimationFrame(updatePointerPhysics);
             }
 
-            // Track mouse movement
             document.addEventListener('mousemove', (e) => {
                 mouseX = e.clientX;
                 mouseY = e.clientY;
             });
 
-            // Pointer hover detection
-            pointer.addEventListener('mouseenter', () => {
-                isPointerHovered = true;
-            });
-
-            pointer.addEventListener('mouseleave', () => {
-                isPointerHovered = false;
-            });
+            pointer.addEventListener('mouseenter', () => { isPointerHovered = true; });
+            pointer.addEventListener('mouseleave', () => { isPointerHovered = false; });
 
             // ─── Pointer wiggle during spin ──────────────────────────
             let wiggleTime = 0;
-            function updatePointerWiggle(angle) {
-                wiggleTime += 0.12;
-                const wiggle = 2.5 * Math.sin(wiggleTime);
-                const speedFactor = Math.min(spinVelocity * 8, 6);
-                const tilt = speedFactor * Math.sin(wiggleTime * 0.7);
-                const totalRot = wiggle + tilt;
-                pointer.style.transform = `translateX(-50%) rotate(${totalRot}deg)`;
-            }
-
+            
             // ─── Line numbers ─────────────────────────────────────────
             function updateLineNumbers() {
                 const lines = namesInput.value.split('\n');
@@ -836,12 +911,10 @@
             }
 
             namesInput.addEventListener('scroll', () => { lineNumbers.scrollTop = namesInput.scrollTop; });
-            
             namesInput.addEventListener('input', () => { 
                 updateLineNumbers(); 
                 checkLargeListWarning();
             });
-            
             window.addEventListener('resize', updateLineNumbers);
             updateLineNumbers();
 
@@ -908,7 +981,6 @@
                     ctx.strokeStyle = 'rgba(255,255,255,0.8)';
                     ctx.stroke();
 
-                    // Adaptive text rendering for all list sizes
                     ctx.save();
                     ctx.translate(cx, cy);
                     ctx.rotate(start + arc / 2);
@@ -960,12 +1032,12 @@
                 const rect = canvas.getBoundingClientRect();
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
-                const mouseX = (e.clientX - rect.left) * scaleX;
-                const mouseY = (e.clientY - rect.top) * scaleY;
+                const mX = (e.clientX - rect.left) * scaleX;
+                const mY = (e.clientY - rect.top) * scaleY;
                 const cx = canvas.width / 2;
                 const cy = canvas.height / 2;
-                const dx = mouseX - cx;
-                const dy = mouseY - cy;
+                const dx = mX - cx;
+                const dy = mY - cy;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 const radius = Math.min(canvas.width, canvas.height) / 2 - 4;
                 if (dist < radius * 0.08 || dist > radius) return -1;
@@ -1020,6 +1092,61 @@
                 return Math.floor(rel / arc) % num;
             }
 
+            function animateToTarget(targetAngle, duration = 5000) {
+                const startAngle = currentAngle;
+                const changeInAngle = targetAngle - startAngle;
+                const startTime = performance.now();
+
+                function easeOutCubic(t) {
+                    return 1 - Math.pow(1 - t, 3);
+                }
+
+                function animate(currentTime) {
+                    const elapsed = currentTime - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easedProgress = easeOutCubic(progress);
+
+                    currentAngle = startAngle + changeInAngle * easedProgress;
+                    
+                    drawWheel(currentAngle);
+                    
+                    if (progress < 1) {
+                        wiggleTime += 0.15;
+                        const wiggle = 3 * Math.sin(wiggleTime);
+                        const speedFactor = 1 - progress;
+                        const tilt = speedFactor * 5 * Math.sin(wiggleTime * 0.7);
+                        pointer.style.transform = `translateX(-50%) rotate(${wiggle + tilt}deg)`;
+                        
+                        const idx = getCurrentPointerIndex();
+                        if (idx >= 0 && idx < names.length) {
+                            centerNameDisplay.textContent = names[idx];
+                            centerNameDisplay.classList.remove('hidden');
+                        }
+
+                        requestAnimationFrame(animate);
+                    } else {
+                        // Animation complete: force exact final angle to prevent float drift
+                        currentAngle = targetAngle;
+                        drawWheel(currentAngle);
+                        pointer.style.transform = 'translateX(-50%) rotate(0deg)';
+                        centerNameDisplay.classList.add('hidden');
+                        
+                        isSpinning = false;
+                        runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        
+                        stopRain();
+                        stopPointerFlashing();
+                        
+                        const winnerIndex = getCurrentPointerIndex();
+                        showModal(names[winnerIndex]);
+                        startFountain();
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            }
+
             function startSpin() {
                 if (isSpinning || names.length < 2) return;
                 isSpinning = true;
@@ -1028,7 +1155,6 @@
                 tooltip.style.display = 'none';
                 wiggleTime = 0;
                 
-                // Reset pointer physics
                 pointerRotation = 0;
                 pointerVelocityX = 0;
                 pointerVelocityY = 0;
@@ -1037,58 +1163,12 @@
                 startRain();
                 startPointerFlashing();
 
-                spinVelocity = 0.6 + Math.random() * 0.4;
-                const friction = 0.975 + Math.random() * 0.008;
-                animateSpin(friction);
-            }
-
-            function animateSpin(friction) {
-                currentAngle += spinVelocity;
-                spinVelocity *= friction;
-
-                drawWheel(currentAngle);
-                updatePointerWiggle(currentAngle);
-
-                // Update center name display during spin
-                if (isSpinning) {
-                    const idx = getCurrentPointerIndex();
-                    if (idx >= 0 && idx < names.length) {
-                        centerNameDisplay.textContent = names[idx];
-                        centerNameDisplay.classList.remove('hidden');
-                    }
-                }
-
-                if (spinVelocity > 0.002) {
-                    animationId = requestAnimationFrame(() => animateSpin(friction));
-                } else {
-                    isSpinning = false;
-                    spinVelocity = 0;
-                    
-                    // Reset pointer to neutral with smooth transition
-                    pointer.style.transform = 'translateX(-50%) rotate(0deg)';
-                    pointerRotation = 0;
-                    pointerVelocityX = 0;
-                    pointerVelocityY = 0;
-                    
-                    runBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    backBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    cancelAnimationFrame(animationId);
-
-                    // Hide center name display when stopped
-                    centerNameDisplay.classList.add('hidden');
-
-                    stopRain();
-                    stopPointerFlashing();
-                    determineWinner();
-                    startFountain();
-                }
-            }
-
-            function determineWinner() {
-                const idx = getCurrentPointerIndex();
-                if (idx >= 0 && idx < names.length) {
-                    showModal(names[idx]);
-                }
+                // Cryptographically secure spin determination
+                (async () => {
+                    const winnerIndex = await getSecureWinnerIndex(names.length);
+                    const targetAngle = calculateTargetAngle(winnerIndex, names.length);
+                    animateToTarget(targetAngle, 5000);
+                })();
             }
 
             // ─── Modals ─────────────────────────────────────────────
@@ -1125,7 +1205,6 @@
                 requestAnimationFrame(resizeCanvas);
                 drawWheel(0);
                 pointer.style.transform = 'translateX(-50%) rotate(0deg)';
-                // Start physics animation loop
                 updatePointerPhysics();
             }
 
@@ -1271,7 +1350,7 @@
             startNormalEmojis();
 
             window.__wheel = { drawWheel, startSpin, names, currentAngle };
-            console.log('🎡 GITD Wheel of Luck ready!');
+            console.log('🎡 GITD Wheel of Luck ready! (Cryptographically Secure)');
         })();
     </script>
 </body>
