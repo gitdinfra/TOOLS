@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>GITD Wheel of Luck</title>
     <!-- Favicon -->
-    <link rel="icon" href="https://cdn-icons-png.magnific.com/256/17744/17744735.png" type="image/x-icon" />
-    <link rel="shortcut icon" href="https://hackaday.com/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="https://toollance.com/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="https://toollance.com/favicon.ico?favicon.adce01b9.ico" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
     <style>
@@ -64,7 +64,7 @@
             will-change: transform, opacity;
         }
 
-        /* ── glass card ── */
+        /* ── glass card ─ */
         .glass {
             background: rgba(255, 255, 255, 0.78);
             backdrop-filter: blur(16px);
@@ -561,8 +561,8 @@
             let fountainAnimationId = null;
             let rainParticles = [];
             let fountainParticles = [];
-            const NERVOUS_EMOJIS = ['😳', '🥶', '😰', '🫣', '🫨', '🤨', '😐'];
-            const CELEBRATION_EMOJIS = ['🎉', '✨', '🍀', '💎', '🎁', '🎈', '⭐', '🎊', '🏆', '💰'];
+            const NERVOUS_EMOJIS = ['😳', '🥶', '', '🫣', '🫨', '🤨', '😐'];
+            const CELEBRATION_EMOJIS = ['', '✨', '🍀', '', '🎁', '🎈', '⭐', '🎊', '🏆', '💰'];
 
             // =================================================================
             // CRYPTOGRAPHICALLY SECURE RANDOMIZATION (Zero Modulo Bias)
@@ -644,7 +644,7 @@
 
             /**
              * Calculates the exact target angle to land on the pre-determined secure winner.
-             * Ensures the wheel lands comfortably in the middle of the slice (15%-85% margin).
+             * FIXED: Always adds full rotations to ensure consistent spin speed.
              */
             function calculateTargetAngle(targetIndex, numNames, minSpins = 6, maxSpins = 10) {
                 const arc = (Math.PI * 2) / numNames;
@@ -660,9 +660,19 @@
                 let a = (Math.PI * 2 - rel) % (Math.PI * 2);
                 if (a < 0) a += Math.PI * 2;
                 
-                const spinCount = minSpins + getSecureRandomInt(maxSpins - minSpins + 1);
+                // Normalize currentAngle to [0, 2π) range to prevent accumulation issues
+                const normalizedCurrentAngle = currentAngle % (Math.PI * 2);
                 
-                return a + (Math.PI * 2 * spinCount);
+                // Calculate how much we need to rotate from the normalized position
+                let rotationNeeded = a - normalizedCurrentAngle;
+                if (rotationNeeded < 0) rotationNeeded += Math.PI * 2;
+                
+                // Always add minimum full rotations to ensure dramatic spin
+                const spinCount = minSpins + getSecureRandomInt(maxSpins - minSpins + 1);
+                const totalRotations = spinCount * Math.PI * 2;
+                
+                // Return the absolute target angle (always moving forward)
+                return normalizedCurrentAngle + rotationNeeded + totalRotations;
             }
 
             // ─── Normal floating emojis ──────────────────────────────
@@ -763,7 +773,7 @@
                 rainParticles = [];
             }
 
-            // ─── Fountain effect ──────────────────────────────────────
+            // ─── Fountain effect ─────────────────────────────────────
             function startFountain() {
                 for (const p of fountainParticles) {
                     if (p.el.parentNode) p.el.remove();
@@ -898,7 +908,7 @@
             pointer.addEventListener('mouseenter', () => { isPointerHovered = true; });
             pointer.addEventListener('mouseleave', () => { isPointerHovered = false; });
 
-            // ─── Pointer wiggle during spin ──────────────────────────
+            // ── Pointer wiggle during spin ──────────────────────────
             let wiggleTime = 0;
             
             // ─── Line numbers ─────────────────────────────────────────
@@ -942,7 +952,7 @@
             window.addEventListener('resize', resizeCanvas);
             requestAnimationFrame(resizeCanvas);
 
-            // ── Color generator ──────────────────────────────────────
+            // ── Color generator ─────────────────────────────────────
             function getColor(index, total) {
                 const hue = (index * (360 / total)) % 360;
                 return `hsl(${hue}, 80%, 60%)`;
@@ -1081,7 +1091,7 @@
 
             canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
-            // ─── Spin logic ─────────────────────────────────────────
+            // ── Spin logic ─────────────────────────────────────────
             function getCurrentPointerIndex() {
                 const num = names.length;
                 if (num === 0) return -1;
@@ -1303,7 +1313,7 @@
             });
             removeFile.addEventListener('click', () => { fileBadge.classList.add('hidden'); });
 
-            // ─── Drag and drop ─────────────────────────────────────
+            // ─── Drag and drop ────────────────────────────────────
             let dragCounter = 0;
             inputWrapper.addEventListener('dragenter', (e) => {
                 e.preventDefault(); e.stopPropagation(); dragCounter++;
@@ -1350,7 +1360,7 @@
             startNormalEmojis();
 
             window.__wheel = { drawWheel, startSpin, names, currentAngle };
-            console.log('🎡 GITD Wheel of Luck ready! (Cryptographically Secure)');
+            console.log(' GITD Wheel of Luck ready! (Cryptographically Secure)');
         })();
     </script>
 </body>
