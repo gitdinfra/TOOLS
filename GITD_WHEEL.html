@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>GITD Wheel of Luck</title>
     <!-- Favicon -->
-    <link rel="icon" href="https://toollance.com/favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="https://toollance.com/favicon.ico?favicon.adce01b9.ico" type="image/x-icon" />
     <link rel="shortcut icon" href="https://toollance.com/favicon.ico?favicon.adce01b9.ico" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
@@ -64,7 +64,7 @@
             will-change: transform, opacity;
         }
 
-        /* ── glass card ─ */
+        /* ── glass card ── */
         .glass {
             background: rgba(255, 255, 255, 0.78);
             backdrop-filter: blur(16px);
@@ -487,7 +487,7 @@
     <!-- ============================================================ -->
     <div id="resultModal" class="modal-overlay hidden">
         <div class="modal-box">
-            <div class="text-5xl mb-3">🎉</div>
+            <div class="text-5xl mb-3"></div>
             <h2 class="text-2xl font-bold text-gray-700 mb-1">Congratulations</h2>
             <p id="winnerName" class="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 py-2">
                 Winner
@@ -506,7 +506,7 @@
         (function() {
             'use strict';
 
-            // ─── DOM refs ──────────────────────────────────────────────
+            // ── DOM refs ──────────────────────────────────────────────
             const pageInput = document.getElementById('pageInput');
             const pageWheel = document.getElementById('pageWheel');
             const namesInput = document.getElementById('namesInput');
@@ -554,20 +554,30 @@
                 springStrength: 0.08
             };
 
-            // ── Emoji effects state ──────────────────────────────────
+            // ── Emoji effects state ─────────────────────────────────
             let normalEmojiInterval = null;
             let pointerInterval = null;
             let rainAnimationId = null;
             let fountainAnimationId = null;
             let rainParticles = [];
             let fountainParticles = [];
-            const NERVOUS_EMOJIS = ['😳', '🥶', '', '🫣', '🫨', '🤨', '😐'];
+            const NERVOUS_EMOJIS = ['😳', '🥶', '', '', '🫨', '🤨', '😐'];
             const CELEBRATION_EMOJIS = ['', '✨', '🍀', '', '🎁', '🎈', '⭐', '🎊', '🏆', '💰'];
 
             // =================================================================
             // CRYPTOGRAPHICALLY SECURE RANDOMIZATION (Zero Modulo Bias)
             // =================================================================
             
+            /**
+             * Normalize angle to [0, 2π) range to prevent floating-point precision issues
+             */
+            function normalizeAngle(angle) {
+                const TWO_PI = Math.PI * 2;
+                angle = angle % TWO_PI;
+                if (angle < 0) angle += TWO_PI;
+                return angle;
+            }
+
             /**
              * Cryptographically secure random integer in [0, max) without modulo bias.
              * Uses rejection sampling to guarantee perfect uniform distribution.
@@ -644,10 +654,13 @@
 
             /**
              * Calculates the exact target angle to land on the pre-determined secure winner.
-             * FIXED: Always adds full rotations to ensure consistent spin speed.
+             * FIXED: Normalizes currentAngle to prevent accumulation issues.
              */
             function calculateTargetAngle(targetIndex, numNames, minSpins = 6, maxSpins = 10) {
                 const arc = (Math.PI * 2) / numNames;
+                
+                // Normalize current angle to prevent floating-point precision issues
+                const normalizedCurrentAngle = normalizeAngle(currentAngle);
                 
                 // Secure random offset within the slice to avoid boundary lines
                 const offsetFraction = 0.15 + (getSecureRandomInt(10000) / 10000) * 0.70;
@@ -659,9 +672,6 @@
                 // a is the required currentAngle modulo 2π
                 let a = (Math.PI * 2 - rel) % (Math.PI * 2);
                 if (a < 0) a += Math.PI * 2;
-                
-                // Normalize currentAngle to [0, 2π) range to prevent accumulation issues
-                const normalizedCurrentAngle = currentAngle % (Math.PI * 2);
                 
                 // Calculate how much we need to rotate from the normalized position
                 let rotationNeeded = a - normalizedCurrentAngle;
@@ -952,7 +962,7 @@
             window.addEventListener('resize', resizeCanvas);
             requestAnimationFrame(resizeCanvas);
 
-            // ── Color generator ─────────────────────────────────────
+            // ── Color generator ──────────────────────────────────────
             function getColor(index, total) {
                 const hue = (index * (360 / total)) % 360;
                 return `hsl(${hue}, 80%, 60%)`;
@@ -1135,8 +1145,8 @@
 
                         requestAnimationFrame(animate);
                     } else {
-                        // Animation complete: force exact final angle to prevent float drift
-                        currentAngle = targetAngle;
+                        // Animation complete: normalize angle to prevent accumulation
+                        currentAngle = normalizeAngle(targetAngle);
                         drawWheel(currentAngle);
                         pointer.style.transform = 'translateX(-50%) rotate(0deg)';
                         centerNameDisplay.classList.add('hidden');
@@ -1313,7 +1323,7 @@
             });
             removeFile.addEventListener('click', () => { fileBadge.classList.add('hidden'); });
 
-            // ─── Drag and drop ────────────────────────────────────
+            // ─── Drag and drop ───────────────────────────────────
             let dragCounter = 0;
             inputWrapper.addEventListener('dragenter', (e) => {
                 e.preventDefault(); e.stopPropagation(); dragCounter++;
@@ -1340,7 +1350,7 @@
                 handleFile(file);
             });
 
-            // ─── Event listeners ────────────────────────────────────
+            // ── Event listeners ────────────────────────────────────
             executeBtn.addEventListener('click', goToWheel);
             backBtn.addEventListener('click', goToInput);
             runBtn.addEventListener('click', startSpin);
